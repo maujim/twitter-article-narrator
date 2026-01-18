@@ -1,114 +1,20 @@
-// const startBtn = document.getElementById('start');
-// const pauseBtn = document.getElementById('pause');
-// const stopBtn = document.getElementById('stop');
-// const statusEl = document.getElementById('status');
-// const errorEl = document.getElementById('error');
-// const infoEl = document.getElementById('info');
-// const statsEls = {
-//   spansFound: document.getElementById('spansFound'),
-//   buffered: document.getElementById('buffered'),
-//   inFlight: document.getElementById('inFlight'),
-//   played: document.getElementById('played')
-// };
-
-// let isRunning = false;
-
-// startBtn.addEventListener('click', async () => {
-//   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-//   chrome.tabs.sendMessage(tab.id, { action: 'start' });
-//   isRunning = true;
-//   updateUI();
-// });
-
-// pauseBtn.addEventListener('click', async () => {
-//   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-//   chrome.tabs.sendMessage(tab.id, { action: 'pause' });
-//   isRunning = false;
-//   updateUI();
-// });
-
-// stopBtn.addEventListener('click', async () => {
-//   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-//   chrome.tabs.sendMessage(tab.id, { action: 'stop' });
-//   isRunning = false;
-//   updateUI();
-//   clearStats();
-//   showError('');
-// });
-
-// chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-//   if (msg.type === 'update') {
-//     updateStats(msg.stats);
-//     updateStatus(msg.status);
-//   }
-//   if (msg.type === 'error') {
-//     showError(msg.error);
-//   }
-//   if (msg.type === 'info') {
-//     showInfo(msg.info);
-//   }
-// });
-
-// function updateUI() {
-//   startBtn.disabled = isRunning;
-//   pauseBtn.disabled = !isRunning;
-//   stopBtn.disabled = !isRunning;
-// }
-
-// function updateStatus(status) {
-//   statusEl.textContent = status;
-//   statusEl.classList.toggle('running', isRunning);
-//   statusEl.classList.toggle('idle', !isRunning);
-// }
-
-// function updateStats(stats) {
-//   Object.entries(stats).forEach(([key, val]) => {
-//     if (statsEls[key]) {
-//       statsEls[key].textContent = val;
-//     }
-//   });
-// }
-
-// function clearStats() {
-//   Object.values(statsEls).forEach(el => el.textContent = '0');
-// }
-
-// function showError(msg) {
-//   if (msg) {
-//     errorEl.textContent = msg;
-//     errorEl.style.display = 'block';
-//   } else {
-//     errorEl.style.display = 'none';
-//   }
-// }
-
-// function showInfo(msg) {
-//   if (msg) {
-//     infoEl.textContent = msg;
-//     infoEl.style.display = 'block';
-//     setTimeout(() => {
-//       infoEl.style.display = 'none';
-//     }, 3000);
-//   }
-// }
-
-// updateUI();
-
-
-
 let extractedText = "";
 let firstSpanText = "";
-let firstSpanAudioSize = 0;
+let lastPlayedAudioSize = 0;
+let totalSpanCount = 0;
 
 // Restore UI state from cached data
 function restoreFromCache(data) {
   extractedText = data.text;
   firstSpanText = data.firstSpanText;
+  totalSpanCount = data.count;
 
   const out = document.getElementById("out");
   const copyBtn = document.getElementById("copy");
   const openTabBtn = document.getElementById("openTab");
   const playFirstBtn = document.getElementById("playFirst");
+  const playSpanNBtn = document.getElementById("playSpanN");
+  const spanIndexInput = document.getElementById("spanIndex");
 
   const charCount = extractedText.length;
   const wordCount = extractedText.split(/\s+/).filter(w => w.length > 0).length;
@@ -117,24 +23,102 @@ function restoreFromCache(data) {
 
   // Update first span info
   if (firstSpanText) {
-    const spanInfoDiv = document.getElementById("spanInfo");
-    const spanTextDiv = document.getElementById("spanText");
-    const spanLengthSpan = document.getElementById("spanLength");
-    const spanWordsSpan = document.getElementById("spanWords");
-
-    const firstSpanWords = firstSpanText.split(/\s+/).filter(w => w.length > 0).length;
-    const preview = firstSpanText.length > 100 ? firstSpanText.substring(0, 100) + '...' : firstSpanText;
-
-    spanTextDiv.textContent = preview;
-    spanLengthSpan.textContent = firstSpanText.length;
-    spanWordsSpan.textContent = firstSpanWords;
-    spanInfoDiv.classList.add("visible");
+    updateSpanInfo(firstSpanText, 0);
   }
 
   // Enable buttons
   copyBtn.disabled = !extractedText;
   openTabBtn.disabled = !extractedText;
   playFirstBtn.disabled = !firstSpanText;
+  playSpanNBtn.disabled = !extractedText;
+  spanIndexInput.disabled = !extractedText;
+  spanIndexInput.max = data.count - 1;
+}
+
+// Update the span info panel
+function updateSpanInfo(text, index) {
+  const spanInfoDiv = document.getElementById("spanInfo");
+  const spanTextDiv = document.getElementById("spanText");
+  const spanLengthSpan = document.getElementById("spanLength");
+  const spanWordsSpan = document.getElementById("spanWords");
+
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
+
+  spanTextDiv.textContent = preview;
+  spanLengthSpan.textContent = text.length;
+  spanWordsSpan.textContent = words;
+  spanInfoDiv.classList.add("visible");
+
+  // Update label to show which span
+  const label = spanInfoDiv.querySelector(".info-label");
+  if (label) {
+    label.textContent = `Span ${index}`;
+  }
+}
+
+// Play audio for given text
+async function playSpanAudio(text, spanIndex) {
+  const out = document.getElementById("out");
+  const playFirstBtn = document.getElementById("playFirst");
+  const playSpanNBtn = document.getElementById("playSpanN");
+
+  try {
+    playFirstBtn.disabled = true;
+    playSpanNBtn.disabled = true;
+    out.textContent = `calling TTS API for span ${spanIndex}...`;
+
+    const formData = new FormData();
+    formData.append('text', text);
+
+    const response = await fetch('http://localhost:8000/tts', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+
+    // Store audio size for estimation
+    lastPlayedAudioSize = audioBlob.size;
+
+    // Display WAV file size
+    const audioInfoDiv = document.getElementById("audioInfo");
+    const wavSizeSpan = document.getElementById("wavSize");
+    const sizeKB = (audioBlob.size / 1024).toFixed(2);
+    wavSizeSpan.textContent = `${sizeKB} KB (${audioBlob.size} bytes)`;
+    audioInfoDiv.classList.add("visible");
+
+    // Enable estimate button now that we have audio
+    document.getElementById("estimate").disabled = false;
+
+    out.textContent = `playing span ${spanIndex}...`;
+
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      out.textContent = "playback complete";
+      playFirstBtn.disabled = !firstSpanText;
+      playSpanNBtn.disabled = !extractedText;
+    };
+
+    audio.onerror = (err) => {
+      URL.revokeObjectURL(audioUrl);
+      out.textContent = `playback error: ${err.message || 'unknown error'}`;
+      playFirstBtn.disabled = !firstSpanText;
+      playSpanNBtn.disabled = !extractedText;
+    };
+
+    await audio.play();
+  } catch (err) {
+    out.textContent = `TTS failed: ${err.message}`;
+    playFirstBtn.disabled = !firstSpanText;
+    playSpanNBtn.disabled = !extractedText;
+  }
 }
 
 // Check for cached data on popup open
@@ -158,15 +142,18 @@ async function init() {
 
 init();
 
+// Extract text button
 document.getElementById("run").onclick = async () => {
   const out = document.getElementById("out");
   const copyBtn = document.getElementById("copy");
   const openTabBtn = document.getElementById("openTab");
   const playFirstBtn = document.getElementById("playFirst");
+  const playSpanNBtn = document.getElementById("playSpanN");
+  const spanIndexInput = document.getElementById("spanIndex");
   const estimateBtn = document.getElementById("estimate");
 
   // Reset audio size tracking
-  firstSpanAudioSize = 0;
+  lastPlayedAudioSize = 0;
 
   const [tab] = await chrome.tabs.query({
     active: true,
@@ -175,19 +162,22 @@ document.getElementById("run").onclick = async () => {
 
   chrome.tabs.sendMessage(
     tab.id,
-    { type: "count"  },
+    { type: "count" },
     (res) => {
       if (!res) {
         out.textContent = "no response, try reloading the page.";
         copyBtn.disabled = true;
         openTabBtn.disabled = true;
         playFirstBtn.disabled = true;
+        playSpanNBtn.disabled = true;
+        spanIndexInput.disabled = true;
         estimateBtn.disabled = true;
         return;
       }
 
       extractedText = res.text;
       firstSpanText = res.firstSpanText;
+      totalSpanCount = res.count;
       const charCount = extractedText.length;
       const wordCount = extractedText.split(/\s+/).filter(w => w.length > 0).length;
 
@@ -195,24 +185,16 @@ document.getElementById("run").onclick = async () => {
 
       // Update first span info
       if (firstSpanText) {
-        const spanInfoDiv = document.getElementById("spanInfo");
-        const spanTextDiv = document.getElementById("spanText");
-        const spanLengthSpan = document.getElementById("spanLength");
-        const spanWordsSpan = document.getElementById("spanWords");
-
-        const firstSpanWords = firstSpanText.split(/\s+/).filter(w => w.length > 0).length;
-        const preview = firstSpanText.length > 100 ? firstSpanText.substring(0, 100) + '...' : firstSpanText;
-
-        spanTextDiv.textContent = preview;
-        spanLengthSpan.textContent = firstSpanText.length;
-        spanWordsSpan.textContent = firstSpanWords;
-        spanInfoDiv.classList.add("visible");
+        updateSpanInfo(firstSpanText, 0);
       }
 
       // Enable buttons if we have text
       copyBtn.disabled = !extractedText;
       openTabBtn.disabled = !extractedText;
       playFirstBtn.disabled = !firstSpanText;
+      playSpanNBtn.disabled = !extractedText;
+      spanIndexInput.disabled = !extractedText;
+      spanIndexInput.max = res.count - 1;
     }
   );
 };
@@ -225,13 +207,12 @@ document.getElementById("copy").onclick = async () => {
     await navigator.clipboard.writeText(extractedText);
     const out = document.getElementById("out");
     const originalText = out.textContent;
-    out.textContent = "✓ copied to clipboard!";
+    out.textContent = "copied to clipboard!";
     setTimeout(() => {
       out.textContent = originalText;
     }, 2000);
   } catch (err) {
-    const out = document.getElementById("out");
-    out.textContent = `copy failed: ${err.message}`;
+    document.getElementById("out").textContent = `copy failed: ${err.message}`;
   }
 };
 
@@ -272,82 +253,50 @@ document.getElementById("openTab").onclick = () => {
   chrome.tabs.create({ url });
 };
 
-// Play first span via TTS
+// Play first span
 document.getElementById("playFirst").onclick = async () => {
   if (!firstSpanText) return;
+  updateSpanInfo(firstSpanText, 0);
+  await playSpanAudio(firstSpanText, 0);
+};
 
+// Play span N
+document.getElementById("playSpanN").onclick = async () => {
+  const spanIndex = parseInt(document.getElementById("spanIndex").value, 10);
   const out = document.getElementById("out");
-  const playFirstBtn = document.getElementById("playFirst");
-  const originalBtnText = playFirstBtn.textContent;
 
-  try {
-    playFirstBtn.disabled = true;
-    playFirstBtn.textContent = "loading...";
-    out.textContent = "calling TTS API...";
+  const [tab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true
+  });
 
-    const formData = new FormData();
-    formData.append('text', firstSpanText);
+  chrome.tabs.sendMessage(
+    tab.id,
+    { type: "getSpanText", index: spanIndex },
+    async (res) => {
+      if (!res || !res.ok) {
+        out.textContent = res?.error || "failed to get span text";
+        return;
+      }
 
-    const response = await fetch('http://localhost:8000/tts', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      updateSpanInfo(res.text, res.index);
+      await playSpanAudio(res.text, res.index);
     }
-
-    const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-
-    // Store audio size for estimation
-    firstSpanAudioSize = audioBlob.size;
-
-    // Display WAV file size
-    const audioInfoDiv = document.getElementById("audioInfo");
-    const wavSizeSpan = document.getElementById("wavSize");
-    const sizeKB = (audioBlob.size / 1024).toFixed(2);
-    wavSizeSpan.textContent = `${sizeKB} KB (${audioBlob.size} bytes)`;
-    audioInfoDiv.classList.add("visible");
-
-    // Enable estimate button now that we have the audio
-    const estimateBtn = document.getElementById("estimate");
-    estimateBtn.disabled = false;
-
-    out.textContent = "playing audio...";
-
-    audio.onended = () => {
-      URL.revokeObjectURL(audioUrl);
-      out.textContent = "playback complete";
-      playFirstBtn.disabled = false;
-      playFirstBtn.textContent = originalBtnText;
-    };
-
-    audio.onerror = (err) => {
-      URL.revokeObjectURL(audioUrl);
-      out.textContent = `playback error: ${err.message || 'unknown error'}`;
-      playFirstBtn.disabled = false;
-      playFirstBtn.textContent = originalBtnText;
-    };
-
-    await audio.play();
-  } catch (err) {
-    out.textContent = `TTS failed: ${err.message}`;
-    playFirstBtn.disabled = false;
-    playFirstBtn.textContent = originalBtnText;
-  }
+  );
 };
 
 // Calculate estimated full audio size
 document.getElementById("estimate").onclick = () => {
-  if (!firstSpanText || !firstSpanAudioSize || !extractedText) return;
+  const spanIndex = parseInt(document.getElementById("spanIndex").value, 10) || 0;
+  const spanInfoLabel = document.querySelector("#spanInfo .info-label");
+  const currentSpanChars = parseInt(document.getElementById("spanLength").textContent, 10);
 
-  const firstSpanChars = firstSpanText.length;
+  if (!lastPlayedAudioSize || !currentSpanChars || !extractedText) return;
+
   const totalChars = extractedText.length;
 
   // Calculate bytes per character ratio
-  const ratio = firstSpanAudioSize / firstSpanChars;
+  const ratio = lastPlayedAudioSize / currentSpanChars;
 
   // Estimate total audio size
   const estimatedBytes = totalChars * ratio;

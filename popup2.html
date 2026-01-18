@@ -164,6 +164,28 @@
         background: #e5e5e5;
         margin: 12px 0;
       }
+
+      /* Span input row */
+      .input-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .input-row input {
+        width: 70px;
+        padding: 8px 10px;
+        font-family: inherit;
+        font-size: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        text-align: center;
+      }
+
+      .input-row input:focus {
+        outline: none;
+        border-color: #2563eb;
+      }
     </style>
   </head>
   <body>
@@ -176,7 +198,7 @@
     <div id="out">Ready</div>
 
     <div id="spanInfo" class="info-panel span-info">
-      <div class="info-label">First Span</div>
+      <div class="info-label">Selected Span</div>
       <div class="info-value preview" id="spanText"></div>
       <div class="info-row">
         <span><strong id="spanLength">0</strong> characters</span>
@@ -217,6 +239,10 @@
       </div>
       <div class="btn-row">
         <button id="playFirst" class="primary" disabled>Play First Span</button>
+      </div>
+      <div class="input-row">
+        <input type="number" id="spanIndex" min="0" value="0" disabled>
+        <button id="playSpanN" class="primary" disabled>Play Span N</button>
       </div>
       <div class="btn-row">
         <button id="estimate" class="secondary" disabled>Estimate Full Audio</button>

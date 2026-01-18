@@ -306,6 +306,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
+  // Get text of a specific span by index
+  if (msg.type === "getSpanText") {
+    const selector = 'span[data-text="true"]';
+    const nodes = document.querySelectorAll(selector);
+    const index = msg.index;
+
+    if (index < 0 || index >= nodes.length) {
+      sendResponse({ ok: false, error: `Invalid index: ${index}. Valid range: 0-${nodes.length - 1}` });
+      return true;
+    }
+
+    const span = nodes[index];
+    sendResponse({
+      ok: true,
+      index: index,
+      text: span.textContent,
+      totalSpans: nodes.length
+    });
+    return true;
+  }
+
   if (msg.type !== "count") return;
 
   const selector = 'span[data-text="true"]';
