@@ -296,6 +296,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   const nodes = document.querySelectorAll(selector);
 
-  sendResponse({ count: nodes.length });
+  // Collect all text from the spans
+  const fullText = Array.from(nodes)
+    .map(node => node.textContent)
+    .join(' ');
+
+  const firstSpanText = nodes.length > 0 ? nodes[0].textContent : '';
+
+  sendResponse({
+    count: nodes.length,
+    text: fullText,
+    firstSpanText: firstSpanText
+  });
   return true; // THIS is the fix
 });

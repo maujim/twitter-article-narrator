@@ -1,9 +1,119 @@
 <!doctype html>
 <html>
+  <head>
+    <style>
+      body {
+        width: 320px;
+        padding: 16px;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      button {
+        padding: 8px 16px;
+        margin-right: 8px;
+        margin-bottom: 8px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      #out {
+        margin-top: 12px;
+        padding: 8px;
+        background: #f5f5f5;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .button-group {
+        margin-top: 8px;
+      }
+      #spanInfo {
+        margin-top: 12px;
+        padding: 8px;
+        background: #e3f2fd;
+        border-radius: 4px;
+        font-size: 11px;
+        display: none;
+      }
+      #spanInfo.visible {
+        display: block;
+      }
+      .info-row {
+        margin-bottom: 4px;
+      }
+      .info-label {
+        font-weight: 600;
+        color: #1976d2;
+      }
+      #audioInfo {
+        margin-top: 8px;
+        padding: 8px;
+        background: #fff3e0;
+        border-radius: 4px;
+        font-size: 11px;
+        display: none;
+      }
+      #audioInfo.visible {
+        display: block;
+      }
+      #estimateInfo {
+        margin-top: 8px;
+        padding: 8px;
+        background: #e8f5e9;
+        border-radius: 4px;
+        font-size: 11px;
+        display: none;
+      }
+      #estimateInfo.visible {
+        display: block;
+      }
+    </style>
+  </head>
   <body>
-    <input id="selector" placeholder="css selector" />
-    <button id="run">run</button>
+    <button id="run">extract text</button>
     <div id="out"></div>
+
+    <div id="spanInfo">
+      <div class="info-row">
+        <span class="info-label">First Span:</span>
+      </div>
+      <div class="info-row" id="spanText" style="font-style: italic; color: #555;"></div>
+      <div class="info-row">
+        <span class="info-label">Length:</span> <span id="spanLength"></span> chars, <span id="spanWords"></span> words
+      </div>
+    </div>
+
+    <div id="audioInfo">
+      <div class="info-row">
+        <span class="info-label">WAV File Size:</span> <span id="wavSize"></span>
+      </div>
+    </div>
+
+    <div id="estimateInfo">
+      <div class="info-row">
+        <span class="info-label">Ratio:</span> <span id="ratioDisplay"></span> bytes/char
+      </div>
+      <div class="info-row">
+        <span class="info-label">Total Text:</span> <span id="totalChars"></span> chars
+      </div>
+      <div class="info-row">
+        <span class="info-label">Estimated Total Audio:</span> <span id="estimatedSize"></span>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button id="copy" disabled>copy text</button>
+      <button id="openTab" disabled>open in tab</button>
+      <button id="playFirst" disabled>play first span</button>
+      <button id="estimate" disabled>estimate full audio size</button>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>
