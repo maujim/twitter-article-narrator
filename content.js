@@ -424,11 +424,15 @@ function setupNarratorUI() {
     return;
   }
 
-  // we use the <aside> tag to find the 'Relevant People' UI element and then clone it
+  // Find the aside element
   const sidebar = document.querySelector('aside[aria-label="Relevant people"]') ||
                   document.querySelector('aside');
 
   if (!sidebar) return;
+
+  // Get the parent container
+  const parentContainer = sidebar.parentElement;
+  if (!parentContainer) return;
 
   // Mark injection as in progress
   uiInjected = true;
@@ -442,35 +446,46 @@ function setupNarratorUI() {
       const template = doc.querySelector('#narrator-ui-template');
       if (!template) return;
 
+      // Clone the entire parent container
+      const clonedParent = parentContainer.cloneNode(true);
+
+      // Find the duplicate aside inside the cloned parent
+      const clonedAside = clonedParent.querySelector('aside');
+      if (!clonedAside) return;
+
+      // Create our custom narrator aside
+      const narratorAside = document.createElement('aside');
+      narratorAside.id = 'narrator-ui';
+      narratorAside.setAttribute('aria-label', 'Article Narrator');
+
+      // Copy the header structure from the original aside
+      const headerDiv = clonedAside.querySelector('div[dir="ltr"]');
+      if (headerDiv) {
+        const newHeader = headerDiv.cloneNode(false);
+        newHeader.textContent = 'Article Narrator';
+        narratorAside.appendChild(newHeader);
+      }
+
+      // Create the list and add our UI
+      const ul = document.createElement('ul');
+      const li = document.createElement('li');
+      li.setAttribute('role', 'listitem');
+
       const narratorUi = document.createElement('div');
-      narratorUi.id = 'narrator-ui';
       narratorUi.appendChild(template.content.cloneNode(true));
 
-      const clonedSidebar = sidebar.cloneNode(true);
-      clonedSidebar.setAttribute('aria-label', 'Article Narrator');
+      li.appendChild(narratorUi);
+      ul.appendChild(li);
+      narratorAside.appendChild(ul);
 
-      const headerDiv = clonedSidebar.querySelector('div[dir="ltr"]');
-      if (headerDiv) {
-        headerDiv.textContent = 'Article Narrator';
-      }
+      // Replace the duplicate aside with our narrator aside
+      clonedAside.replaceWith(narratorAside);
 
-      const ul = clonedSidebar.querySelector('ul');
-      if (!ul) return;
-
-      while (ul.firstChild) {
-        ul.removeChild(ul.firstChild);
-      }
-
-      const newLi = document.createElement('li');
-      newLi.setAttribute('role', 'listitem');
-      newLi.appendChild(narratorUi);
-
-      ul.appendChild(newLi);
-
-      if (sidebar.nextSibling) {
-        sidebar.parentNode.insertBefore(clonedSidebar, sidebar.nextSibling);
+      // Insert the cloned parent as a sibling
+      if (parentContainer.nextSibling) {
+        parentContainer.parentNode.insertBefore(clonedParent, parentContainer.nextSibling);
       } else {
-        sidebar.parentNode.appendChild(clonedSidebar);
+        parentContainer.parentNode.appendChild(clonedParent);
       }
 
       console.log('Narrator UI: Injected');
