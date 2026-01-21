@@ -11,6 +11,44 @@ let uiInjected = false;
 let apiUrl = localStorage.getItem('ttsApiUrl') || 'http://localhost:8000';
 let voice = localStorage.getItem('ttsVoice') || 'alba';
 
+// Logging state
+const MAX_LOG_ENTRIES = 10;
+const ENABLE_TIMESTAMPS = true;
+let logEntries = [];
+
+// Log a status message to the #out element
+function logStatus(message) {
+  const outEl = document.getElementById('out');
+  if (!outEl) return;
+
+  // Add timestamp if enabled
+  let entry = message;
+  if (ENABLE_TIMESTAMPS) {
+    const now = new Date();
+    const timestamp = now.toTimeString().split(' ')[0]; // HH:MM:SS
+    entry = `[${timestamp}] ${message}`;
+  }
+
+  // Append to log array
+  logEntries.push(entry);
+
+  // Trim to max entries
+  if (logEntries.length > MAX_LOG_ENTRIES) {
+    logEntries = logEntries.slice(-MAX_LOG_ENTRIES);
+  }
+
+  // Update DOM with all entries
+  outEl.innerHTML = logEntries.map(entry => {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.textContent = entry;
+    return div.outerHTML;
+  }).join('');
+
+  // Auto-scroll to bottom
+  outEl.scrollTop = outEl.scrollHeight;
+}
+
 // Sequential playback state
 let currentPlayer = null;
 let isPlaying = false;
@@ -109,9 +147,9 @@ async function playSingleSpan(text, spanIndex) {
     }
   }
 
-  if (outEl) {
-    outEl.textContent = `connecting to TTS...`;
-  }
+  // Log span playback start (1-indexed for display)
+  logStatus(`playing span ${spanIndex + 1} of ${totalSpans}`);
+  logStatus('connecting to TTS...');
 
   const player = new StreamingWavPlayer();
   currentPlayer = player;
@@ -130,9 +168,7 @@ async function playSingleSpan(text, spanIndex) {
       player.waitForPlaybackEnd().then(() => {
         const totalTime = ((performance.now() - startTime) / 1000).toFixed(1);
         const firstAudioSecs = ((firstAudioTime - startTime) / 1000).toFixed(2);
-        if (outEl) {
-          outEl.textContent = `done (${firstAudioSecs}s to first audio, ${totalTime}s total)`;
-        }
+        logStatus(`done (${firstAudioSecs}s to first audio, ${totalTime}s total)`);
 
         currentPlayer = null;
         resolve();
@@ -153,9 +189,7 @@ async function playSingleSpan(text, spanIndex) {
           if (!player.firstAudioChunkTime) {
             player.firstAudioChunkTime = performance.now();
             const timeToFirst = ((player.firstAudioChunkTime - firstAudioTime) / 1000).toFixed(2);
-            if (outEl) {
-              outEl.textContent = `playing (first audio in ${timeToFirst}s)...`;
-            }
+            logStatus(`first audio in ${timeToFirst}s`);
           }
         }
       }
@@ -200,9 +234,7 @@ async function playSingleSpan(text, spanIndex) {
           reject(new Error(`Failed to start TTS`));
           return;
         }
-        if (outEl) {
-          outEl.textContent = `generating audio...`;
-        }
+        logStatus('generating audio...');
         firstAudioTime = performance.now();
       }
     );
@@ -221,10 +253,11 @@ async function playSpansSequentially(spans, startOffset = 0) {
     if (isPlaying && currentSpanIndex === totalSpans) {
       isPlaying = false;
       if (narratorUi) {
-        narratorUi.querySelector('#out').textContent = 'playback complete';
+        logStatus('playback complete');
         narratorUi.querySelector('#playAll').disabled = false;
         narratorUi.querySelector('#pausePlayback').disabled = true;
         narratorUi.querySelector('#stopPlayback').disabled = true;
+        narratorUi.querySelector('#pausePlayback').textContent = 'Pause';
       }
     }
     currentPlayer = null;
@@ -232,10 +265,11 @@ async function playSpansSequentially(spans, startOffset = 0) {
     console.error('Sequential playback error:', error);
     cleanupPlayback();
     if (narratorUi) {
-      narratorUi.querySelector('#out').textContent = `playback error: ${error.message}`;
+      logStatus(`error: ${error.message}`);
       narratorUi.querySelector('#playAll').disabled = false;
       narratorUi.querySelector('#pausePlayback').disabled = true;
       narratorUi.querySelector('#stopPlayback').disabled = true;
+      narratorUi.querySelector('#pausePlayback').textContent = 'Pause';
     }
   }
 }
@@ -247,11 +281,9 @@ function setupNarratorEventListeners() {
 
   // Extract text function
   const extractText = () => {
-    const out = narratorUi.querySelector('#out');
-
     spanGroups = groupSpansByParent();
     if (spanGroups.length === 0) {
-      out.textContent = "no text spans found";
+      logStatus("no text spans found");
       return;
     }
 
@@ -261,7 +293,7 @@ function setupNarratorEventListeners() {
     const charCount = extractedText.length;
     const wordCount = extractedText.split(/\s+/).filter(w => w.length > 0).length;
 
-    out.textContent = `spans: ${totalSpanCount} | words: ${wordCount} | chars: ${charCount}`;
+    logStatus(`spans: ${totalSpanCount} | words: ${wordCount} | chars: ${charCount}`);
 
     narratorUi.querySelector('#copy').disabled = !extractedText;
     narratorUi.querySelector('#openTab').disabled = !extractedText;
@@ -294,12 +326,7 @@ function setupNarratorEventListeners() {
       voice = newVoice;
       localStorage.setItem('ttsVoice', voice);
     }
-    const out = narratorUi.querySelector('#out');
-    const originalText = out.textContent;
-    out.textContent = 'settings saved';
-    setTimeout(() => {
-      out.textContent = originalText;
-    }, 1500);
+    logStatus('settings saved');
   };
 
   // Auto-extract on load
@@ -310,13 +337,11 @@ function setupNarratorEventListeners() {
 
   // Play All (sequential playback)
   narratorUi.querySelector('#playAll').onclick = async () => {
-    const out = narratorUi.querySelector('#out');
-
     cleanupPlayback();
 
     sequentialSpans = spanGroups.map(g => g.text);
     if (sequentialSpans.length === 0) {
-      out.textContent = "no text spans found";
+      logStatus("no text spans found");
       return;
     }
 
@@ -327,7 +352,7 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#playAll').disabled = true;
     narratorUi.querySelector('#pausePlayback').disabled = false;
     narratorUi.querySelector('#stopPlayback').disabled = false;
-    out.textContent = `starting playback from span ${startIndex + 1}...`;
+    logStatus(`starting playback from span ${startIndex + 1}...`);
 
     playSpansSequentially(remainingSpans, startIndex);
   };
@@ -337,21 +362,24 @@ function setupNarratorEventListeners() {
     if (isPlaying && currentPlayer) {
       await currentPlayer.pause();
       isPlaying = false;
-      narratorUi.querySelector('#out').textContent = 'paused';
+      narratorUi.querySelector('#pausePlayback').textContent = 'Resume';
+      logStatus('paused');
     } else if (currentPlayer) {
       await currentPlayer.resume();
       isPlaying = true;
-      narratorUi.querySelector('#out').textContent = 'playing...';
+      narratorUi.querySelector('#pausePlayback').textContent = 'Pause';
+      logStatus('resumed');
     }
   };
 
   // Stop playback
   narratorUi.querySelector('#stopPlayback').onclick = () => {
     cleanupPlayback();
-    narratorUi.querySelector('#out').textContent = 'stopped';
+    logStatus('stopped');
     narratorUi.querySelector('#playAll').disabled = false;
     narratorUi.querySelector('#pausePlayback').disabled = true;
     narratorUi.querySelector('#stopPlayback').disabled = true;
+    narratorUi.querySelector('#pausePlayback').textContent = 'Pause';
     currentSpanIndex = 0;
   };
 
@@ -361,14 +389,9 @@ function setupNarratorEventListeners() {
 
     try {
       await navigator.clipboard.writeText(extractedText);
-      const out = narratorUi.querySelector('#out');
-      const originalText = out.textContent;
-      out.textContent = "copied to clipboard!";
-      setTimeout(() => {
-        out.textContent = originalText;
-      }, 2000);
+      logStatus("copied to clipboard!");
     } catch (err) {
-      narratorUi.querySelector('#out').textContent = `copy failed: ${err.message}`;
+      logStatus(`copy failed: ${err.message}`);
     }
   };
 

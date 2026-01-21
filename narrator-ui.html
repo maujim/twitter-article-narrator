@@ -22,9 +22,16 @@
       border-radius: 6px;
       font-size: 11px;
       color: #6b7280;
-      min-height: 18px;
-      display: flex;
-      align-items: center;
+      max-height: calc(11px * 10 + 8px * 2 + 16px); /* 10 lines + padding + border */
+      overflow-y: auto;
+      /* Fade effect at top using mask-image */
+      mask-image: linear-gradient(to bottom, transparent 0%, black 15%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%);
+    }
+
+    #narrator-ui #out .log-entry {
+      line-height: 1.5;
+      padding: 2px 0;
     }
 
     #narrator-ui .info-panel {
