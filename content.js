@@ -98,7 +98,7 @@ async function playSingleSpan(text, spanIndex) {
       // Add 1-second highlight effect
       group.spans.forEach(span => {
         span.style.transition = 'background-color 0.3s ease';
-        span.style.backgroundColor = '#fef08a'; // yellow highlight
+        span.style.backgroundColor = '#3b82f6'; // blue highlight
       });
 
       setTimeout(() => {
@@ -215,7 +215,7 @@ async function playSpansSequentially(spans, startOffset = 0) {
   try {
     for (let i = 0; i < spans.length; i++) {
       if (!isPlaying) break;
-      await playSingleSpan(spans[i], startOffset + i + 1);
+      await playSingleSpan(spans[i], startOffset + i);
     }
 
     if (isPlaying && currentSpanIndex === totalSpans) {
