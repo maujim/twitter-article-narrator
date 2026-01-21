@@ -328,9 +328,6 @@ function setupNarratorEventListeners() {
   // Auto-extract on load
   extractText();
 
-  // Extract text button
-  narratorUi.querySelector('#run').onclick = extractText;
-
   // Play All (sequential playback)
   narratorUi.querySelector('#playAll').onclick = async () => {
     cleanupPlayback();
