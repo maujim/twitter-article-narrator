@@ -6,6 +6,7 @@ let extractedText = "";
 let currentSpanIndex = 0;
 let currentSpanText = "";
 let totalSpanCount = 0;
+let totalWordCount = 0;
 let spanGroups = [];
 let uiInjected = false;
 let apiUrl = localStorage.getItem('ttsApiUrl') || 'http://localhost:8000';
@@ -73,32 +74,40 @@ function updateProgressUI() {
 
   if (!progressText || !progressBarFill) return;
 
-  if (totalSpans === 0) {
+  if (totalWordCount === 0) {
     progressText.textContent = 'No content';
     progressBarFill.style.width = '0%';
     if (playBtn) playBtn.disabled = true;
     return;
   }
 
+  // Calculate current word position by counting words in completed spans
   const displayIndex = Math.min(currentSpanIndex, totalSpans);
-  // While playing, show current span (1-indexed). When not playing, show completed spans.
   const isCurrentlyPlaying = isPlaying && currentPlayer;
-  const spansToShow = isCurrentlyPlaying ? displayIndex + 1 : displayIndex;
-  const percentage = Math.round((spansToShow / totalSpans) * 100);
+  const spansCompleted = isCurrentlyPlaying ? displayIndex + 1 : displayIndex;
 
-  if (spansToShow === 0) {
-    progressText.textContent = `Not started • ${totalSpans} spans`;
+  let wordsCompleted = 0;
+  for (let i = 0; i < spansCompleted && i < spanGroups.length; i++) {
+    const text = spanGroups[i]?.text || '';
+    wordsCompleted += text.split(/\s+/).filter(w => w.length > 0).length;
+  }
+  wordsCompleted = Math.min(wordsCompleted, totalWordCount);
+
+  const percentage = totalWordCount > 0 ? Math.round((wordsCompleted / totalWordCount) * 100) : 0;
+
+  if (wordsCompleted === 0) {
+    progressText.textContent = `Not started • ${totalWordCount} words`;
     if (playBtn) {
       playBtn.disabled = false;
       updateButtonText(playBtn, 'Play');
     }
-  } else if (spansToShow >= totalSpans && !isCurrentlyPlaying) {
-    progressText.textContent = `Complete • ${totalSpans} of ${totalSpans} spans`;
+  } else if (wordsCompleted >= totalWordCount && !isCurrentlyPlaying) {
+    progressText.textContent = `Complete • ${totalWordCount} words`;
     if (playBtn) {
       updateButtonText(playBtn, 'Play');
     }
   } else {
-    progressText.textContent = `Span ${spansToShow} of ${totalSpans} (${percentage}%)`;
+    progressText.textContent = `${wordsCompleted} of ${totalWordCount} words (${percentage}%)`;
     // Always show "Play" when not playing - no resume state
     if (playBtn && !isPlaying) {
       updateButtonText(playBtn, 'Play');
@@ -429,9 +438,9 @@ function setupNarratorEventListeners() {
     extractedText = spanGroups.map(g => g.text).join(' ');
 
     const charCount = extractedText.length;
-    const wordCount = extractedText.split(/\s+/).filter(w => w.length > 0).length;
+    totalWordCount = extractedText.split(/\s+/).filter(w => w.length > 0).length;
 
-    logStatus(`Text extracted: ${totalSpanCount} spans | ${wordCount} words | ${charCount} chars`);
+    logStatus(`Text extracted: ${totalSpanCount} spans | ${totalWordCount} words | ${charCount} chars`);
 
     totalSpans = totalSpanCount;
 
