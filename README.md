@@ -2,6 +2,10 @@
 
 chrome extension that scrolls through articles while text-to-speech plays.
 
+# WARNING this software is pre-alpha and may have frequent changes
+
+you need to run `uvx pocket-tts serve` locally as the 'backend'
+
 ## install
 
 1. download all files (manifest.json, background.js, content.js, popup.html, popup.js) into a folder
