@@ -1,217 +1,13 @@
 <!-- Reusable UI template injected by content.js -->
 <template id="narrator-ui-template">
-  <style>
-    .narrator-controls {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 13px;
-      color: #333;
-      background: #fafafa;
-      padding: 8px;
-    }
-
-    .narrator-controls #out {
-      padding: 8px 10px;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      font-size: 11px;
-      color: #6b7280;
-      max-height: calc(11px * 10 + 8px * 2 + 16px); /* 10 lines + padding + border */
-      overflow-y: auto;
-      /* Fade effect at top using mask-image */
-      mask-image: linear-gradient(to bottom, transparent 0%, black 15%);
-      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%);
-    }
-
-    .narrator-controls #out .log-entry {
-      line-height: 1.5;
-      padding: 2px 0;
-    }
-
-    .narrator-controls .info-panel {
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 11px;
-      margin-bottom: 8px;
-      display: none;
-    }
-
-    .narrator-controls .info-panel.visible {
-      display: block;
-    }
-
-    .narrator-controls .info-panel.audio-info {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-    }
-
-    .narrator-controls .info-label {
-      font-weight: 600;
-      color: #4b5563;
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 3px;
-    }
-
-    .narrator-controls .info-value.preview {
-      font-style: italic;
-      color: #6b7280;
-      margin: 4px 0;
-      line-height: 1.4;
-    }
-
-    .narrator-controls .info-row {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 4px;
-      padding-top: 4px;
-      border-top: 1px solid rgba(0,0,0,0.06);
-    }
-
-    .narrator-controls .info-row span {
-      color: #9ca3af;
-      font-size: 10px;
-    }
-
-    .narrator-controls .info-row strong {
-      color: #374151;
-      font-weight: 600;
-    }
-
-    .narrator-controls .btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .narrator-controls .btn-row {
-      display: flex;
-      gap: 6px;
-    }
-
-    .narrator-controls button {
-      flex: 1;
-      padding: 8px 12px;
-      font-family: inherit;
-      font-size: 11px;
-      font-weight: 500;
-      border: 1px solid #e5e7eb;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: all 0.1s ease;
-      background: #fff;
-      color: #374151;
-    }
-
-    .narrator-controls button:hover:not(:disabled) {
-      background: #f9fafb;
-      border-color: #d1d5db;
-    }
-
-    .narrator-controls button:active:not(:disabled) {
-      background: #f3f4f6;
-      transform: translateY(1px);
-    }
-
-    .narrator-controls button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .narrator-controls button.primary {
-      background: #2563eb;
-      color: white;
-      border-color: #2563eb;
-    }
-
-    .narrator-controls button.primary:hover:not(:disabled) {
-      background: #1d4ed8;
-      border-color: #1d4ed8;
-    }
-
-    .narrator-controls button.danger {
-      background: #ef4444;
-      color: white;
-      border-color: #ef4444;
-    }
-
-    .narrator-controls button.danger:hover:not(:disabled) {
-      background: #dc2626;
-      border-color: #dc2626;
-    }
-
-    .narrator-controls .divider {
-      height: 1px;
-      background: #e5e7eb;
-      margin: 10px 0;
-    }
-
-    .narrator-controls .settings-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 8px;
-    }
-
-    .narrator-controls .settings-row label {
-      font-size: 10px;
-      color: #6b7280;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-
-    .narrator-controls .settings-row input {
-      flex: 1;
-      padding: 6px 8px;
-      font-size: 11px;
-      font-family: inherit;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      background: #fff;
-      color: #374151;
-    }
-
-    .narrator-controls .settings-row input:focus {
-      outline: none;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-    }
-
-    .narrator-controls .settings-row button {
-      flex: 0 0 auto;
-      padding: 6px 10px;
-      font-size: 10px;
-    }
-
-    .narrator-controls .settings-row select {
-      flex: 1;
-      padding: 6px 8px;
-      font-size: 11px;
-      font-family: inherit;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      background: #fff;
-      color: #374151;
-    }
-
-    .narrator-controls .settings-row select:focus {
-      outline: none;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-    }
-  </style>
-
-  <div class="narrator-controls">
-    <div class="settings-row">
-      <label for="apiUrl">API URL</label>
-      <input id="apiUrl" type="text" placeholder="http://localhost:8000" value="http://localhost:8000">
+  <div>
+    <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+      <input id="apiUrl" type="text" placeholder="API URL" value="http://localhost:8000" style="flex: 1;">
       <button id="saveSettings">Save</button>
     </div>
 
-    <div class="settings-row">
-      <label for="voice">Voice</label>
-      <select id="voice">
+    <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+      <select id="voice" style="flex: 1;">
         <option value="alba">alba</option>
         <option value="marius">marius</option>
         <option value="javert">javert</option>
@@ -223,36 +19,23 @@
       </select>
     </div>
 
-    <div class="btn-group">
-      <button id="run" class="primary">Extract Text</button>
-      <div class="btn-row">
-        <button id="copy" disabled>Copy Text</button>
-        <button id="openTab" disabled>Open in Tab</button>
-      </div>
+    <button id="run">Extract Text</button>
+
+    <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+      <button id="copy" disabled style="flex: 1;">Copy Text</button>
+      <button id="openTab" disabled style="flex: 1;">Open in Tab</button>
     </div>
 
-    <div class="divider"></div>
+    <div id="out" style="margin: 8px 0; min-height: 40px; max-height: 200px; overflow-y: auto;">Ready</div>
 
-    <div id="out">Ready</div>
-
-    <div class="divider"></div>
-
-    <div id="audioInfo" class="info-panel audio-info">
-      <div class="info-label">Audio</div>
-      <div class="info-row" style="margin-top: 0; padding-top: 0; border: none;">
-        <span>Size</span>
-        <span><strong id="wavSize">—</strong></span>
-      </div>
+    <div id="audioInfo" style="display: none;">
+      <div style="font-size: 11px; color: #666;">Audio Size: <strong id="wavSize">—</strong></div>
     </div>
 
-    <div class="divider"></div>
-
-    <div class="btn-group">
-      <div class="btn-row">
-        <button id="playAll" class="primary" disabled>Play All</button>
-        <button id="pausePlayback" disabled>Pause</button>
-        <button id="stopPlayback" class="danger" disabled>Stop</button>
-      </div>
+    <div style="display: flex; gap: 4px;">
+      <button id="playAll" disabled style="flex: 1;">Play All</button>
+      <button id="pausePlayback" disabled style="flex: 1;">Pause</button>
+      <button id="stopPlayback" disabled style="flex: 1;">Stop</button>
     </div>
   </div>
 </template>
