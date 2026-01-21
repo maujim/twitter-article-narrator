@@ -16,15 +16,6 @@ const MAX_LOG_ENTRIES = 10;
 let logEntries = [];
 let logEntryTemplate = null; // Template for cloning log entry styles
 
-// Floating panel state
-let floatingPanel = null;
-let isFloating = false;
-let panelState = {
-  x: 20,
-  y: 20,
-  minimized: false
-};
-
 // Log a status message to the #out element
 function logStatus(message) {
   const outEl = document.getElementById('out');
@@ -643,231 +634,57 @@ function updateButtonText(button, text) {
   button.setAttribute('aria-label', text);
 }
 
-// Floating panel management
-function createFloatingPanel(narratorUi) {
-  // Load saved position
-  const savedState = localStorage.getItem('narratorPanelState');
-  if (savedState) {
-    try {
-      panelState = JSON.parse(savedState);
-    } catch (e) {
-      console.warn('Failed to parse saved panel state:', e);
-    }
-  }
-
-  // Create floating container
-  const panel = document.createElement('div');
-  panel.id = 'narrator-floating-panel';
-  panel.style.cssText = `
-    position: fixed;
-    top: ${panelState.y}px;
-    left: ${panelState.x}px;
-    z-index: 10000;
-    min-width: 300px;
-    max-width: 400px;
-    background: rgb(21, 32, 43);
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  `;
-
-  // Create drag handle header
-  const header = document.createElement('div');
-  header.id = 'narrator-panel-header';
-  header.style.cssText = `
-    padding: 12px 16px;
-    background: rgb(21, 32, 43);
-    border-bottom: 1px solid rgb(56, 68, 77);
-    cursor: move;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    user-select: none;
-  `;
-  header.innerHTML = `
-    <span style="color: rgb(255, 255, 255); font-weight: 700; font-size: 15px;">Article Narrator</span>
-    <div style="display: flex; gap: 8px;">
-      <button id="narrator-dock-btn" style="background: none; border: none; color: rgb(29, 155, 240); cursor: pointer; font-size: 18px; padding: 4px 8px;" title="Dock to sidebar">⬅</button>
-      <button id="narrator-minimize-btn" style="background: none; border: none; color: rgb(29, 155, 240); cursor: pointer; font-size: 18px; padding: 4px 8px;" title="Minimize">−</button>
-    </div>
-  `;
-
-  // Create content container
-  const content = document.createElement('div');
-  content.id = 'narrator-panel-content';
-  content.style.cssText = `
-    padding: 0;
-    max-height: 70vh;
-    overflow-y: auto;
-  `;
-  content.appendChild(narratorUi);
-
-  panel.appendChild(header);
-  panel.appendChild(content);
-  document.body.appendChild(panel);
-
-  // Restore minimize state if needed
-  if (panelState.minimized) {
-    content.style.display = 'none';
-    const minimizeBtn = panel.querySelector('#narrator-minimize-btn');
-    minimizeBtn.textContent = '+';
-    minimizeBtn.title = 'Expand';
-  }
-
-  // Setup drag functionality
-  setupDragFunctionality(panel, header);
-
-  // Setup minimize button
-  const minimizeBtn = panel.querySelector('#narrator-minimize-btn');
-  const dockBtn = panel.querySelector('#narrator-dock-btn');
-
-  minimizeBtn.onclick = (e) => {
-    e.stopPropagation();
-    toggleMinimize(panel, content, minimizeBtn);
-  };
-
-  dockBtn.onclick = () => {
-    // Try to dock back to sidebar
-    tryDockToSidebar();
-  };
-
-  return panel;
-}
-
-function setupDragFunctionality(panel, handle) {
-  let isDragging = false;
-  let startX, startY, initialX, initialY;
-
-  handle.addEventListener('mousedown', (e) => {
-    if (e.target.tagName === 'BUTTON') return;
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    initialX = panel.offsetLeft;
-    initialY = panel.offsetTop;
-    handle.style.cursor = 'grabbing';
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    panel.style.left = `${initialX + dx}px`;
-    panel.style.top = `${initialY + dy}px`;
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (isDragging) {
-      isDragging = false;
-      handle.style.cursor = 'move';
-      // Save position
-      panelState.x = panel.offsetLeft;
-      panelState.y = panel.offsetTop;
-      localStorage.setItem('narratorPanelState', JSON.stringify(panelState));
-    }
-  });
-}
-
-function toggleMinimize(panel, content, btn) {
-  if (panelState.minimized) {
-    content.style.display = 'block';
-    btn.textContent = '−';
-    btn.title = 'Minimize';
-    panelState.minimized = false;
-  } else {
-    content.style.display = 'none';
-    btn.textContent = '+';
-    btn.title = 'Expand';
-    panelState.minimized = true;
-  }
-  localStorage.setItem('narratorPanelState', JSON.stringify(panelState));
-}
-
-function moveToFloatingMode() {
-  const narratorUi = document.getElementById('narrator-ui');
-  if (!narratorUi || isFloating) return;
-
-  isFloating = true;
-
-  // Find and remove the cloned parent container that holds our narrator UI
-  // The structure is: parentContainer > clonedParent > narratorAside (our #narrator-ui)
-  const narratorAside = narratorUi.closest('aside');
-  if (narratorAside && narratorAside.parentElement) {
-    const clonedParent = narratorAside.parentElement;
-    // This should be the cloned parent container
-    if (clonedParent !== document.body) {
-      clonedParent.remove();
-    }
-  } else {
-    // Fallback: just remove the narrator UI from its current location
-    if (narratorUi.parentElement) {
-      narratorUi.remove();
-    }
-  }
-
-  // Ensure the narrator UI is detached
-  document.body.appendChild(narratorUi);
-
-  // Create floating panel
-  floatingPanel = createFloatingPanel(narratorUi);
-  logStatus('panel moved to floating mode (drag to reposition)');
-}
-
-function tryDockToSidebar() {
+// Check if the sidebar has space to display the UI
+function isSidebarAvailable() {
   const sidebar = document.querySelector('aside[aria-label="Relevant people"]') ||
                   document.querySelector('aside');
-  if (!sidebar) {
-    logStatus('sidebar not found, staying in floating mode');
-    return;
-  }
+  if (!sidebar) return false;
 
-  // Check if sidebar has width (is visible)
   const rect = sidebar.getBoundingClientRect();
-  if (rect.width < 50) {
-    logStatus('sidebar not available, staying in floating mode');
-    return;
-  }
-
-  const narratorUi = document.getElementById('narrator-ui');
-
-  // Remove floating panel
-  if (floatingPanel) {
-    if (narratorUi) {
-      // Detach from floating panel content
-      const panelContent = floatingPanel.querySelector('#narrator-panel-content');
-      if (panelContent && narratorUi.parentElement === panelContent) {
-        panelContent.removeChild(narratorUi);
-      }
-    }
-    floatingPanel.remove();
-    floatingPanel = null;
-  }
-
-  isFloating = false;
-  logStatus('panel docked to sidebar');
-
-  // Re-inject into sidebar
-  uiInjected = false;
-  setupNarratorUI();
+  // Sidebar has space if it has meaningful width
+  return rect.width > 50;
 }
 
-// Check if the narrator UI is visible in the sidebar
-function isNarratorVisibleInSidebar() {
+// Find and hide/show the narrator UI's parent container
+function getNarratorContainer() {
   const narratorUi = document.getElementById('narrator-ui');
-  if (!narratorUi || isFloating) return true; // Floating is always visible
+  if (!narratorUi) return null;
+  // The UI is inside a cloned parent container
+  const narratorAside = narratorUi.closest('aside');
+  if (narratorAside && narratorAside.parentElement) {
+    return narratorAside.parentElement;
+  }
+  return null;
+}
 
-  const rect = narratorUi.getBoundingClientRect();
-  // Check if it has meaningful size and is in viewport
-  return rect.width > 50 && rect.height > 50;
+function hideNarratorUI() {
+  const container = getNarratorContainer();
+  if (container) {
+    container.style.display = 'none';
+    console.log('Narrator UI: Hidden (sidebar not available)');
+  }
+}
+
+function showNarratorUI() {
+  const container = getNarratorContainer();
+  if (container) {
+    container.style.display = '';
+    console.log('Narrator UI: Shown (sidebar available)');
+  }
 }
 
 function setupVisibilityObserver() {
   // Check visibility periodically
   const checkInterval = setInterval(() => {
-    if (!isFloating && !isNarratorVisibleInSidebar()) {
-      // UI in sidebar but not visible - switch to floating
-      moveToFloatingMode();
+    const narratorUi = document.getElementById('narrator-ui');
+    if (!narratorUi) return;
+
+    if (!isSidebarAvailable()) {
+      // Sidebar not available - hide the container
+      hideNarratorUI();
+    } else {
+      // Sidebar available - make sure container is shown
+      showNarratorUI();
     }
   }, 1000);
 
@@ -876,14 +693,13 @@ function setupVisibilityObserver() {
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      if (isFloating) {
-        // Try to dock if window got larger
-        tryDockToSidebar();
+      const narratorUi = document.getElementById('narrator-ui');
+      if (!narratorUi) return;
+
+      if (isSidebarAvailable()) {
+        showNarratorUI();
       } else {
-        // Check if still visible in sidebar
-        if (!isNarratorVisibleInSidebar()) {
-          moveToFloatingMode();
-        }
+        hideNarratorUI();
       }
     }, 300);
   });
