@@ -8,16 +8,17 @@
   "background": {
     "service_worker": "background.js"
   },
-  "action": {
-    "default_popup": "popup2.html",
-    "default_title": "article narrator"
-  },
   "content_scripts": [
     {
       "matches": ["https://twitter.com/*", "https://x.com/*"],
-      "js": ["streaming-player.js", "content.js"],
-      "css": ["narrator.css"],
+      "js": ["streaming-player.js", "content.js", "narrator-ui.js"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["narrator-ui.html"],
+      "matches": ["https://twitter.com/*", "https://x.com/*"]
     }
   ]
 }

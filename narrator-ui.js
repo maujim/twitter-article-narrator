@@ -1,0 +1,606 @@
+// Narrator UI - Injected interface for article narration
+// This module handles the in-page UI, text extraction, and audio playback
+
+// State
+let extractedText = "";
+let currentSpanIndex = 0;
+let currentSpanText = "";
+let lastPlayedAudioSize = 0;
+let totalSpanCount = 0;
+let spanGroups = [];
+
+// Sequential playback state
+let currentPlayer = null;
+let isPlaying = false;
+let sequentialSpans = [];
+let totalSpans = 0;
+let currentChunkListener = null;
+
+// Group spans by their common container ancestor
+function groupSpansByParent() {
+  const selector = 'span[data-text="true"]';
+  const spans = Array.from(document.querySelectorAll(selector));
+
+  const parentMap = new Map();
+
+  for (const span of spans) {
+    let container = span.parentElement;
+    while (container && container.tagName === 'SPAN') {
+      container = container.parentElement;
+    }
+    if (!container) continue;
+
+    if (!parentMap.has(container)) {
+      parentMap.set(container, []);
+    }
+    parentMap.get(container).push(span);
+  }
+
+  const allContainers = Array.from(parentMap.keys());
+  allContainers.sort((a, b) => {
+    const aFirst = parentMap.get(a)[0];
+    const bFirst = parentMap.get(b)[0];
+    const position = aFirst.compareDocumentPosition(bFirst);
+    return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  });
+
+  const groups = [];
+  for (const container of allContainers) {
+    const containerSpans = parentMap.get(container);
+    containerSpans.sort((a, b) => {
+      const position = a.compareDocumentPosition(b);
+      return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
+
+    const combinedText = containerSpans.map(s => s.textContent).join('');
+
+    groups.push({
+      parent: container,
+      spans: containerSpans,
+      text: combinedText,
+      spanCount: containerSpans.length
+    });
+  }
+
+  return groups;
+}
+
+// Clean up playback state and listeners
+function cleanupPlayback() {
+  if (currentChunkListener) {
+    chrome.runtime.onMessage.removeListener(currentChunkListener);
+    currentChunkListener = null;
+  }
+  if (currentPlayer) {
+    currentPlayer.stop();
+    currentPlayer = null;
+  }
+  isPlaying = false;
+}
+
+// Play a single span's audio and return a promise that resolves when done
+async function playSingleSpan(text, spanIndex) {
+  const startTime = performance.now();
+  const outEl = document.getElementById('out');
+  const groups = groupSpansByParent();
+
+  currentSpanIndex = spanIndex;
+  if (spanIndex >= 0 && spanIndex < groups.length) {
+    updateSpanInfo(groups[spanIndex].text, spanIndex);
+  }
+
+  if (outEl) {
+    outEl.textContent = `connecting to TTS...`;
+  }
+
+  const player = new StreamingWavPlayer();
+  currentPlayer = player;
+
+  return new Promise((resolve, reject) => {
+    player.onComplete = (totalBytes) => {
+      lastPlayedAudioSize = totalBytes;
+
+      const audioInfoDiv = document.getElementById("audioInfo");
+      const wavSizeSpan = document.getElementById("wavSize");
+      if (audioInfoDiv && wavSizeSpan) {
+        const sizeKB = (totalBytes / 1024).toFixed(2);
+        wavSizeSpan.textContent = `${sizeKB} KB (${totalBytes} bytes)`;
+        audioInfoDiv.classList.add("visible");
+      }
+
+      const estimateBtn = document.getElementById("estimate");
+      if (estimateBtn) {
+        estimateBtn.disabled = false;
+      }
+
+      const totalTime = ((performance.now() - startTime) / 1000).toFixed(1);
+      const firstAudioSecs = ((firstAudioTime - startTime) / 1000).toFixed(2);
+      if (outEl) {
+        outEl.textContent = `done (${firstAudioSecs}s to first audio, ${totalTime}s total)`;
+      }
+
+      currentPlayer = null;
+      resolve();
+    };
+
+    player.onError = (error) => {
+      currentPlayer = null;
+      reject(error);
+    };
+
+    const chunkListener = (msg) => {
+      if (msg.type === 'ttsChunk') {
+        if (msg.done) {
+          player.complete();
+        } else if (msg.value) {
+          player.addChunk(new Uint8Array(msg.value));
+          if (!player.firstAudioChunkTime) {
+            player.firstAudioChunkTime = performance.now();
+            const timeToFirst = ((player.firstAudioChunkTime - firstAudioTime) / 1000).toFixed(2);
+            if (outEl) {
+              outEl.textContent = `playing (first audio in ${timeToFirst}s)...`;
+            }
+          }
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(chunkListener);
+    currentChunkListener = chunkListener;
+
+    const originalOnComplete = player.onComplete;
+    player.onComplete = (totalBytes) => {
+      chrome.runtime.onMessage.removeListener(chunkListener);
+      currentChunkListener = null;
+      if (originalOnComplete) originalOnComplete(totalBytes);
+    };
+
+    let firstAudioTime = startTime;
+
+    chrome.runtime.sendMessage(
+      { type: "fetchTTS", text: text },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          chrome.runtime.onMessage.removeListener(chunkListener);
+          currentChunkListener = null;
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (!response) {
+          chrome.runtime.onMessage.removeListener(chunkListener);
+          currentChunkListener = null;
+          reject(new Error('No response from background script'));
+          return;
+        }
+        if (response.type === 'error') {
+          chrome.runtime.onMessage.removeListener(chunkListener);
+          currentChunkListener = null;
+          reject(new Error(response.error));
+          return;
+        }
+        if (!response.ok) {
+          chrome.runtime.onMessage.removeListener(chunkListener);
+          currentChunkListener = null;
+          reject(new Error(`Failed to start TTS`));
+          return;
+        }
+        if (outEl) {
+          outEl.textContent = `generating audio...`;
+        }
+        firstAudioTime = performance.now();
+      }
+    );
+  });
+}
+
+// Play all spans sequentially with proper UI updates
+async function playSpansSequentially(spans, startOffset = 0) {
+  const narratorUi = document.getElementById('narrator-ui');
+  try {
+    for (let i = 0; i < spans.length; i++) {
+      if (!isPlaying) break;
+      await playSingleSpan(spans[i], startOffset + i + 1);
+    }
+
+    if (isPlaying && currentSpanIndex === totalSpans) {
+      isPlaying = false;
+      if (narratorUi) {
+        narratorUi.querySelector('#out').textContent = 'playback complete';
+        narratorUi.querySelector('#playAll').disabled = false;
+        narratorUi.querySelector('#pausePlayback').disabled = true;
+        narratorUi.querySelector('#stopPlayback').disabled = true;
+        narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
+        narratorUi.querySelector('#playCurrent').disabled = false;
+      }
+    }
+    currentPlayer = null;
+  } catch (error) {
+    console.error('Sequential playback error:', error);
+    cleanupPlayback();
+    if (narratorUi) {
+      narratorUi.querySelector('#out').textContent = `playback error: ${error.message}`;
+      narratorUi.querySelector('#playAll').disabled = false;
+      narratorUi.querySelector('#pausePlayback').disabled = true;
+      narratorUi.querySelector('#stopPlayback').disabled = true;
+      narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
+      narratorUi.querySelector('#playCurrent').disabled = false;
+    }
+  }
+}
+
+// Update the span info panel
+function updateSpanInfo(text, index) {
+  currentSpanText = text;
+  currentSpanIndex = index;
+
+  const spanInfoDiv = document.getElementById("spanInfo");
+  const spanIndexSpan = document.getElementById("spanIndex");
+  const spanTextDiv = document.getElementById("spanText");
+  const spanLengthSpan = document.getElementById("spanLength");
+  const spanWordsSpan = document.getElementById("spanWords");
+
+  const words = text.split(/\s+/).filter(w => w.length > 0).length;
+  const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
+
+  if (spanIndexSpan) spanIndexSpan.textContent = index + 1;
+  if (spanTextDiv) spanTextDiv.textContent = preview;
+  if (spanLengthSpan) spanLengthSpan.textContent = text.length;
+  if (spanWordsSpan) spanWordsSpan.textContent = words;
+  if (spanInfoDiv) spanInfoDiv.classList.add("visible");
+
+  const currentSpanEl = document.getElementById("currentSpan");
+  if (currentSpanEl) currentSpanEl.textContent = index + 1;
+  updatePaginationButtons();
+}
+
+// Update pagination button states
+function updatePaginationButtons() {
+  const prevBtn = document.getElementById("prevSpan");
+  const nextBtn = document.getElementById("nextSpan");
+  if (prevBtn) prevBtn.disabled = currentSpanIndex <= 0;
+  if (nextBtn) nextBtn.disabled = currentSpanIndex >= totalSpanCount - 1;
+}
+
+// Show pagination and jump controls
+function showNavigation() {
+  const pagination = document.getElementById("pagination");
+  const jumpGroup = document.getElementById("jumpGroup");
+  const totalSpansEl = document.getElementById("totalSpans");
+
+  if (pagination) pagination.style.display = "flex";
+  if (jumpGroup) jumpGroup.style.display = "flex";
+  if (totalSpansEl) totalSpansEl.textContent = totalSpanCount;
+}
+
+// Load span by index directly
+function loadSpan(index) {
+  if (index < 0 || index >= spanGroups.length) return false;
+  const group = spanGroups[index];
+  updateSpanInfo(group.text, index);
+  return true;
+}
+
+// Set up event listeners for the narrator UI
+function setupNarratorEventListeners() {
+  const narratorUi = document.getElementById('narrator-ui');
+  if (!narratorUi) return;
+
+  // Extract text button
+  narratorUi.querySelector('#run').onclick = () => {
+    const out = narratorUi.querySelector('#out');
+
+    spanGroups = groupSpansByParent();
+    if (spanGroups.length === 0) {
+      out.textContent = "no text spans found";
+      return;
+    }
+
+    totalSpanCount = spanGroups.length;
+    extractedText = spanGroups.map(g => g.text).join(' ');
+    lastPlayedAudioSize = 0;
+
+    const charCount = extractedText.length;
+    const wordCount = extractedText.split(/\s+/).filter(w => w.length > 0).length;
+
+    out.textContent = `spans: ${totalSpanCount} | words: ${wordCount} | chars: ${charCount}`;
+
+    narratorUi.querySelector('#copy').disabled = !extractedText;
+    narratorUi.querySelector('#openTab').disabled = !extractedText;
+    narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
+    narratorUi.querySelector('#playAll').disabled = totalSpanCount === 0;
+
+    totalSpans = totalSpanCount;
+
+    if (totalSpanCount > 0) {
+      showNavigation();
+      loadSpan(0);
+      narratorUi.querySelector('#playCurrent').disabled = false;
+    }
+  };
+
+  // Play All (sequential playback)
+  narratorUi.querySelector('#playAll').onclick = async () => {
+    const out = narratorUi.querySelector('#out');
+
+    cleanupPlayback();
+
+    sequentialSpans = spanGroups.map(g => g.text);
+    if (sequentialSpans.length === 0) {
+      out.textContent = "no text spans found";
+      return;
+    }
+
+    isPlaying = true;
+    const startIndex = currentSpanIndex > 0 ? currentSpanIndex - 1 : 0;
+    const remainingSpans = sequentialSpans.slice(startIndex);
+
+    narratorUi.querySelector('#playAll').disabled = true;
+    narratorUi.querySelector('#pausePlayback').disabled = false;
+    narratorUi.querySelector('#stopPlayback').disabled = false;
+    narratorUi.querySelector('#playFirst').disabled = true;
+    narratorUi.querySelector('#playCurrent').disabled = true;
+    out.textContent = `starting playback from span ${startIndex + 1}...`;
+
+    playSpansSequentially(remainingSpans, startIndex);
+  };
+
+  // Pause playback
+  narratorUi.querySelector('#pausePlayback').onclick = async () => {
+    if (isPlaying && currentPlayer) {
+      await currentPlayer.pause();
+      isPlaying = false;
+      narratorUi.querySelector('#out').textContent = 'paused';
+    } else if (currentPlayer) {
+      await currentPlayer.resume();
+      isPlaying = true;
+      narratorUi.querySelector('#out').textContent = 'playing...';
+    }
+  };
+
+  // Stop playback
+  narratorUi.querySelector('#stopPlayback').onclick = () => {
+    cleanupPlayback();
+    narratorUi.querySelector('#out').textContent = 'stopped';
+    narratorUi.querySelector('#playAll').disabled = false;
+    narratorUi.querySelector('#pausePlayback').disabled = true;
+    narratorUi.querySelector('#stopPlayback').disabled = true;
+    narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
+    narratorUi.querySelector('#playCurrent').disabled = false;
+    currentSpanIndex = 0;
+  };
+
+  // Previous span
+  narratorUi.querySelector('#prevSpan').onclick = () => {
+    if (currentSpanIndex > 0) {
+      loadSpan(currentSpanIndex - 1);
+    }
+  };
+
+  // Next span
+  narratorUi.querySelector('#nextSpan').onclick = () => {
+    if (currentSpanIndex < totalSpanCount - 1) {
+      loadSpan(currentSpanIndex + 1);
+    }
+  };
+
+  // Jump to span (scrolls to it in the page)
+  narratorUi.querySelector('#jumpToSpan').onclick = () => {
+    const groups = groupSpansByParent();
+    const index = currentSpanIndex;
+
+    if (index < 0 || index >= groups.length) return;
+
+    const group = groups[index];
+    if (group.spans.length > 0) {
+      group.spans[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    narratorUi.querySelector('#out').textContent = `jumped to span ${currentSpanIndex + 1}`;
+  };
+
+  // Copy to clipboard
+  narratorUi.querySelector('#copy').onclick = async () => {
+    if (!extractedText) return;
+
+    try {
+      await navigator.clipboard.writeText(extractedText);
+      const out = narratorUi.querySelector('#out');
+      const originalText = out.textContent;
+      out.textContent = "copied to clipboard!";
+      setTimeout(() => {
+        out.textContent = originalText;
+      }, 2000);
+    } catch (err) {
+      narratorUi.querySelector('#out').textContent = `copy failed: ${err.message}`;
+    }
+  };
+
+  // Open in new tab
+  narratorUi.querySelector('#openTab').onclick = () => {
+    if (!extractedText) return;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Extracted Text</title>
+  <style>
+    body {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      font-family: Georgia, serif;
+      font-size: 18px;
+      line-height: 1.6;
+      color: #333;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <pre>${extractedText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+</body>
+</html>
+  `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+
+  // Play first span
+  narratorUi.querySelector('#playFirst').onclick = async () => {
+    const out = narratorUi.querySelector('#out');
+
+    cleanupPlayback();
+
+    loadSpan(0);
+    const groups = groupSpansByParent();
+    if (groups.length === 0) {
+      out.textContent = "no text spans found";
+      return;
+    }
+
+    isPlaying = true;
+    out.textContent = `playing span 1/${groups.length}...`;
+
+    try {
+      await playSingleSpan(groups[0].text, 1);
+      out.textContent = 'done';
+      isPlaying = false;
+    } catch (err) {
+      out.textContent = `error: ${err.message}`;
+      isPlaying = false;
+    }
+  };
+
+  // Play current span
+  narratorUi.querySelector('#playCurrent').onclick = async () => {
+    const out = narratorUi.querySelector('#out');
+    const groups = groupSpansByParent();
+
+    if (groups.length === 0 || currentSpanIndex < 0 || currentSpanIndex >= groups.length) {
+      out.textContent = "no span to play";
+      return;
+    }
+
+    cleanupPlayback();
+
+    isPlaying = true;
+    out.textContent = `playing span ${currentSpanIndex + 1}/${groups.length}...`;
+
+    try {
+      await playSingleSpan(groups[currentSpanIndex].text, currentSpanIndex + 1);
+      out.textContent = 'done';
+      isPlaying = false;
+    } catch (err) {
+      out.textContent = `error: ${err.message}`;
+      isPlaying = false;
+    }
+  };
+
+  // Calculate estimated full audio size
+  narratorUi.querySelector('#estimate').onclick = () => {
+    const currentSpanChars = parseInt(narratorUi.querySelector('#spanLength').textContent, 10);
+
+    if (!lastPlayedAudioSize || !currentSpanChars || !extractedText) return;
+
+    const totalChars = extractedText.length;
+    const ratio = lastPlayedAudioSize / currentSpanChars;
+    const estimatedBytes = totalChars * ratio;
+    const estimatedKB = estimatedBytes / 1024;
+    const estimatedMB = estimatedKB / 1024;
+
+    const estimateInfoDiv = narratorUi.querySelector('#estimateInfo');
+    narratorUi.querySelector('#ratioDisplay').textContent = ratio.toFixed(2);
+    narratorUi.querySelector('#totalChars').textContent = totalChars.toLocaleString();
+
+    let sizeText;
+    if (estimatedMB >= 1) {
+      sizeText = `${estimatedMB.toFixed(2)} MB`;
+    } else {
+      sizeText = `${estimatedKB.toFixed(2)} KB`;
+    }
+    sizeText += ` (${Math.round(estimatedBytes).toLocaleString()} bytes)`;
+
+    narratorUi.querySelector('#estimatedSize').textContent = sizeText;
+    estimateInfoDiv.classList.add('visible');
+  };
+}
+
+// Inject narrator UI into the Twitter sidebar
+function setupNarratorUI() {
+  const hasArticleText = document.querySelector('span[data-text="true"]');
+  if (!hasArticleText) return;
+
+  if (document.getElementById('narrator-ui')) return;
+
+  const sidebar = document.querySelector('aside[aria-label="Relevant people"]') ||
+                  document.querySelector('aside');
+
+  if (!sidebar) return;
+
+  // Load the UI template
+  fetch(chrome.runtime.getURL('narrator-ui.html'))
+    .then(response => response.text())
+    .then(html => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const template = doc.querySelector('#narrator-ui-template');
+      if (!template) return;
+
+      const narratorUi = document.createElement('div');
+      narratorUi.id = 'narrator-ui';
+      narratorUi.appendChild(template.content.cloneNode(true));
+
+      const clonedSidebar = sidebar.cloneNode(true);
+      clonedSidebar.setAttribute('aria-label', 'Article Narrator');
+
+      const headerDiv = clonedSidebar.querySelector('div[dir="ltr"]');
+      if (headerDiv) {
+        headerDiv.textContent = 'Article Narrator';
+      }
+
+      const ul = clonedSidebar.querySelector('ul');
+      if (!ul) return;
+
+      while (ul.firstChild) {
+        ul.removeChild(ul.firstChild);
+      }
+
+      const newLi = document.createElement('li');
+      newLi.setAttribute('role', 'listitem');
+      newLi.appendChild(narratorUi);
+
+      ul.appendChild(newLi);
+
+      if (sidebar.nextSibling) {
+        sidebar.parentNode.insertBefore(clonedSidebar, sidebar.nextSibling);
+      } else {
+        sidebar.parentNode.appendChild(clonedSidebar);
+      }
+
+      console.log('Narrator UI: Injected');
+
+      setupNarratorEventListeners();
+    })
+    .catch(err => {
+      console.error('Failed to load narrator UI template:', err);
+    });
+}
+
+// Use a MutationObserver to handle Twitter's dynamic content loading
+const observer = new MutationObserver(() => {
+  setupNarratorUI();
+});
+
+observer.observe(document.body, {
+  childList: true,
+  subtree: true,
+});
+
+// Also run on initial load
+setupNarratorUI();
