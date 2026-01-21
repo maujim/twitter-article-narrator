@@ -555,8 +555,26 @@ function setupNarratorUI() {
       const narratorUi = document.createElement('div');
       narratorUi.appendChild(template.content.cloneNode(true));
 
-      // REPLACE BUTTONS: Clone the Follow button 3 times for our controls
+      // REPLACE BUTTONS: Clone the Follow button for our controls
       if (followButton) {
+        // Clone for Copy and Open buttons
+        const copyOpenContainer = narratorUi.querySelector('#copyOpenButtons');
+        if (copyOpenContainer) {
+          const copyBtn = followButton.cloneNode(true);
+          copyBtn.id = 'copy';
+          copyBtn.disabled = true;
+          updateButtonText(copyBtn, 'Copy Text');
+
+          const openTabBtn = followButton.cloneNode(true);
+          openTabBtn.id = 'openTab';
+          openTabBtn.disabled = true;
+          updateButtonText(openTabBtn, 'Open in Tab');
+
+          copyOpenContainer.appendChild(copyBtn);
+          copyOpenContainer.appendChild(openTabBtn);
+        }
+
+        // Clone for playback buttons
         const buttonContainer = narratorUi.querySelector('div[style*="display: flex"]:last-of-type');
         if (buttonContainer) {
           buttonContainer.innerHTML = ''; // Clear existing buttons
