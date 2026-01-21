@@ -1,6 +1,0 @@
-
-then extract the api logic from @background.js into something clean. that will be the api for the backend. underneath, we don't need to add too much extra shit. 
-
-1. we wanna be able to hit a public URL (exposed in front-end settings) or localhost (default)
-2. change this only from the front-end, but make the request sending code be
-   same (copy paste if you have to, abstraction not needed rn)
