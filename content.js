@@ -522,8 +522,19 @@ function setupNarratorEventListeners() {
   // Auto-extract on load
   extractText();
 
-  // Play (sequential playback) - always starts from beginning
+  // Play (sequential playback) - starts from beginning, or resumes if paused
   narratorUi.querySelector('#playAll').onclick = async () => {
+    // If we have a current player that's paused, resume it
+    if (currentPlayer && !isPlaying) {
+      await currentPlayer.resume();
+      isPlaying = true;
+      logStatus('resumed');
+      narratorUi.querySelector('#playAll').disabled = true;
+      narratorUi.querySelector('#pausePlayback').disabled = false;
+      return;
+    }
+
+    // Otherwise start fresh from beginning
     cleanupPlayback();
 
     sequentialSpans = spanGroups.map(g => g.text);
@@ -538,26 +549,20 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#playAll').disabled = true;
     narratorUi.querySelector('#pausePlayback').disabled = false;
     narratorUi.querySelector('#stopPlayback').disabled = false;
-    updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
 
     logStatus(`Starting playback (API: ${apiUrl}, Voice: ${voice})`);
 
     playSpansSequentially(sequentialSpans, 0);
   };
 
-  // Pause/Resume playback
+  // Pause playback (only pauses, does not resume)
   narratorUi.querySelector('#pausePlayback').onclick = async () => {
-    if (!currentPlayer) return;
+    if (!currentPlayer || !isPlaying) return;
 
-    if (isPlaying) {
-      await currentPlayer.pause();
-      isPlaying = false;
-      logStatus('paused');
-    } else {
-      await currentPlayer.resume();
-      isPlaying = true;
-      logStatus('resumed');
-    }
+    await currentPlayer.pause();
+    isPlaying = false;
+    logStatus('paused');
+    narratorUi.querySelector('#playAll').disabled = false; // Enable Play to resume
   };
 
   // Stop playback
