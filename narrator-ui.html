@@ -1,7 +1,15 @@
 <!-- Reusable UI template injected by content.js -->
 <template id="narrator-ui-template">
   <div style="padding: 12px;">
-    <!-- Segment 1: Playback buttons (always visible) -->
+    <!-- Progress bar (always visible) -->
+    <div id="progressSection" style="margin-bottom: 12px;">
+      <div id="progressText" style="font-size: 12px; color: rgb(91, 112, 131); margin-bottom: 4px; text-align: left;">Not started</div>
+      <div id="progressBarTrack" style="width: 100%; height: 4px; background-color: rgb(61, 81, 100); border-radius: 2px; overflow: hidden;">
+        <div id="progressBarFill" style="width: 0%; height: 100%; background-color: rgb(29, 155, 240); transition: width 0.3s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Playback buttons (always visible) -->
     <div id="playbackButtons" style="display: flex; gap: 8px; margin-bottom: 12px; justify-content: space-evenly;"></div>
 
     <!-- Separator 1: Between play segment and settings segment (always visible) -->

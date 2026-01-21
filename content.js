@@ -65,6 +65,85 @@ let sequentialSpans = [];
 let totalSpans = 0;
 let currentChunkListener = null;
 
+// Progress tracking state
+let lastArticleUrl = '';
+
+// Get localStorage key for current article progress
+function getProgressKey() {
+  const url = window.location.href;
+  return `narrator_progress_${url}`;
+}
+
+// Get localStorage key for current article ID (for tracking if article changed)
+function getArticleIdKey() {
+  return 'narrator_last_article';
+}
+
+// Save current progress to localStorage
+function saveProgress() {
+  const key = getProgressKey();
+  localStorage.setItem(key, currentSpanIndex.toString());
+  localStorage.setItem(getArticleIdKey(), window.location.href);
+}
+
+// Load progress from localStorage
+function loadProgress() {
+  const lastUrl = localStorage.getItem(getArticleIdKey());
+  const currentUrl = window.location.href;
+
+  // Reset if we're on a different article
+  if (lastUrl !== currentUrl) {
+    currentSpanIndex = 0;
+    return 0;
+  }
+
+  const key = getProgressKey();
+  const saved = localStorage.getItem(key);
+  if (saved !== null) {
+    currentSpanIndex = parseInt(saved, 10);
+  }
+  return currentSpanIndex;
+}
+
+// Update progress bar UI
+function updateProgressUI() {
+  const progressText = document.getElementById('progressText');
+  const progressBarFill = document.getElementById('progressBarFill');
+  const playBtn = document.getElementById('playAll');
+
+  if (!progressText || !progressBarFill) return;
+
+  if (totalSpans === 0) {
+    progressText.textContent = 'No content';
+    progressBarFill.style.width = '0%';
+    if (playBtn) playBtn.disabled = true;
+    return;
+  }
+
+  const displayIndex = Math.min(currentSpanIndex, totalSpans);
+  const percentage = Math.round((displayIndex / totalSpans) * 100);
+
+  if (displayIndex === 0) {
+    progressText.textContent = `Not started • ${totalSpans} spans`;
+    if (playBtn) {
+      playBtn.disabled = false;
+      updateButtonText(playBtn, 'Play');
+    }
+  } else if (displayIndex >= totalSpans) {
+    progressText.textContent = `Complete • ${totalSpans} of ${totalSpans} spans`;
+    if (playBtn) {
+      updateButtonText(playBtn, 'Play');
+    }
+  } else {
+    progressText.textContent = `Span ${displayIndex} of ${totalSpans} (${percentage}%)`;
+    if (playBtn && !isPlaying) {
+      updateButtonText(playBtn, 'Resume');
+    }
+  }
+
+  progressBarFill.style.width = `${percentage}%`;
+}
+
 // Group spans by their common container ancestor with support for Pocket article structure
 function groupSpansByParent() {
   // Try to find the main content container first
@@ -334,9 +413,14 @@ async function playSpansSequentially(spans, startOffset = 0) {
     for (let i = 0; i < spans.length; i++) {
       if (!isPlaying) break;
       await playSingleSpan(spans[i], startOffset + i);
+
+      // Update progress and save after each span
+      currentSpanIndex = startOffset + i + 1;
+      updateProgressUI();
+      saveProgress();
     }
 
-    if (isPlaying && currentSpanIndex === totalSpans) {
+    if (isPlaying && currentSpanIndex >= totalSpans) {
       isPlaying = false;
       if (narratorUi) {
         logStatus('playback complete');
@@ -344,6 +428,7 @@ async function playSpansSequentially(spans, startOffset = 0) {
         narratorUi.querySelector('#pausePlayback').disabled = true;
         narratorUi.querySelector('#stopPlayback').disabled = true;
         updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
+        updateProgressUI();
       }
     }
     currentPlayer = null;
@@ -356,6 +441,7 @@ async function playSpansSequentially(spans, startOffset = 0) {
       narratorUi.querySelector('#pausePlayback').disabled = true;
       narratorUi.querySelector('#stopPlayback').disabled = true;
       updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
+      updateProgressUI();
     }
   }
 }
@@ -381,15 +467,17 @@ function setupNarratorEventListeners() {
 
     logStatus(`Text extracted: ${totalSpanCount} spans | ${wordCount} words | ${charCount} chars`);
 
+    totalSpans = totalSpanCount;
+
+    // Load saved progress and update UI
+    loadProgress();
+    updateProgressUI();
+
     const copyBtn = narratorUi.querySelector('#copy');
     const openTabBtn = narratorUi.querySelector('#openTab');
-    const playAllBtn = narratorUi.querySelector('#playAll');
 
     if (copyBtn) copyBtn.disabled = !extractedText;
     if (openTabBtn) openTabBtn.disabled = !extractedText;
-    if (playAllBtn) playAllBtn.disabled = totalSpanCount === 0;
-
-    totalSpans = totalSpanCount;
   };
 
   // Initialize API URL input from saved value
@@ -454,7 +542,7 @@ function setupNarratorEventListeners() {
   // Auto-extract on load
   extractText();
 
-  // Play All (sequential playback)
+  // Play (sequential playback)
   narratorUi.querySelector('#playAll').onclick = async () => {
     cleanupPlayback();
 
@@ -465,16 +553,21 @@ function setupNarratorEventListeners() {
     }
 
     isPlaying = true;
-    const startIndex = currentSpanIndex > 0 ? currentSpanIndex - 1 : 0;
-    const remainingSpans = sequentialSpans.slice(startIndex);
+    // currentSpanIndex is the next span to play (0 = start from beginning)
+    const remainingSpans = sequentialSpans.slice(currentSpanIndex);
 
     narratorUi.querySelector('#playAll').disabled = true;
     narratorUi.querySelector('#pausePlayback').disabled = false;
     narratorUi.querySelector('#stopPlayback').disabled = false;
+    updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
 
-    logStatus(`Starting playback from span ${startIndex + 1} (API: ${apiUrl}, Voice: ${voice})`);
+    if (currentSpanIndex === 0) {
+      logStatus(`Starting playback (API: ${apiUrl}, Voice: ${voice})`);
+    } else {
+      logStatus(`Resuming from span ${currentSpanIndex + 1} (API: ${apiUrl}, Voice: ${voice})`);
+    }
 
-    playSpansSequentially(remainingSpans, startIndex);
+    playSpansSequentially(remainingSpans, currentSpanIndex);
   };
 
   // Pause playback
@@ -501,6 +594,8 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#stopPlayback').disabled = true;
     updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
     currentSpanIndex = 0;
+    updateProgressUI();
+    saveProgress(); // Clear saved progress
   };
 
   // Copy to clipboard
@@ -767,7 +862,7 @@ function setupNarratorUI() {
           playAllBtn.id = 'playAll';
           playAllBtn.disabled = true;
           playAllBtn.style.flex = '1';
-          updateButtonText(playAllBtn, 'Play All');
+          updateButtonText(playAllBtn, 'Play');
 
           pauseBtn.id = 'pausePlayback';
           pauseBtn.disabled = true;
