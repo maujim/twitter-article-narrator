@@ -15,7 +15,7 @@
   "content_scripts": [
     {
       "matches": ["https://twitter.com/*", "https://x.com/*"],
-      "js": ["content.js"],
+      "js": ["streaming-player.js", "content.js"],
       "css": ["narrator.css"],
       "run_at": "document_end"
     }
