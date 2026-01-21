@@ -207,8 +207,6 @@ async function playSpansSequentially(spans, startOffset = 0) {
         narratorUi.querySelector('#playAll').disabled = false;
         narratorUi.querySelector('#pausePlayback').disabled = true;
         narratorUi.querySelector('#stopPlayback').disabled = true;
-        narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
-        narratorUi.querySelector('#playCurrent').disabled = false;
       }
     }
     currentPlayer = null;
@@ -220,8 +218,6 @@ async function playSpansSequentially(spans, startOffset = 0) {
       narratorUi.querySelector('#playAll').disabled = false;
       narratorUi.querySelector('#pausePlayback').disabled = true;
       narratorUi.querySelector('#stopPlayback').disabled = true;
-      narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
-      narratorUi.querySelector('#playCurrent').disabled = false;
     }
   }
 }
@@ -303,7 +299,6 @@ function setupNarratorEventListeners() {
 
     narratorUi.querySelector('#copy').disabled = !extractedText;
     narratorUi.querySelector('#openTab').disabled = !extractedText;
-    narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
     narratorUi.querySelector('#playAll').disabled = totalSpanCount === 0;
 
     totalSpans = totalSpanCount;
@@ -311,7 +306,6 @@ function setupNarratorEventListeners() {
     if (totalSpanCount > 0) {
       showNavigation();
       loadSpan(0);
-      narratorUi.querySelector('#playCurrent').disabled = false;
     }
   };
 
@@ -372,8 +366,6 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#playAll').disabled = true;
     narratorUi.querySelector('#pausePlayback').disabled = false;
     narratorUi.querySelector('#stopPlayback').disabled = false;
-    narratorUi.querySelector('#playFirst').disabled = true;
-    narratorUi.querySelector('#playCurrent').disabled = true;
     out.textContent = `starting playback from span ${startIndex + 1}...`;
 
     playSpansSequentially(remainingSpans, startIndex);
@@ -399,8 +391,6 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#playAll').disabled = false;
     narratorUi.querySelector('#pausePlayback').disabled = true;
     narratorUi.querySelector('#stopPlayback').disabled = true;
-    narratorUi.querySelector('#playFirst').disabled = totalSpanCount === 0;
-    narratorUi.querySelector('#playCurrent').disabled = false;
     currentSpanIndex = 0;
   };
 
@@ -484,57 +474,6 @@ function setupNarratorEventListeners() {
     const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     window.open(url, '_blank');
-  };
-
-  // Play first span
-  narratorUi.querySelector('#playFirst').onclick = async () => {
-    const out = narratorUi.querySelector('#out');
-
-    cleanupPlayback();
-
-    loadSpan(0);
-    const groups = groupSpansByParent();
-    if (groups.length === 0) {
-      out.textContent = "no text spans found";
-      return;
-    }
-
-    isPlaying = true;
-    out.textContent = `playing span 1/${groups.length}...`;
-
-    try {
-      await playSingleSpan(groups[0].text, 1);
-      out.textContent = 'done';
-      isPlaying = false;
-    } catch (err) {
-      out.textContent = `error: ${err.message}`;
-      isPlaying = false;
-    }
-  };
-
-  // Play current span
-  narratorUi.querySelector('#playCurrent').onclick = async () => {
-    const out = narratorUi.querySelector('#out');
-    const groups = groupSpansByParent();
-
-    if (groups.length === 0 || currentSpanIndex < 0 || currentSpanIndex >= groups.length) {
-      out.textContent = "no span to play";
-      return;
-    }
-
-    cleanupPlayback();
-
-    isPlaying = true;
-    out.textContent = `playing span ${currentSpanIndex + 1}/${groups.length}...`;
-
-    try {
-      await playSingleSpan(groups[currentSpanIndex].text, currentSpanIndex + 1);
-      out.textContent = 'done';
-      isPlaying = false;
-    } catch (err) {
-      out.textContent = `error: ${err.message}`;
-      isPlaying = false;
-    }
   };
 }
 
