@@ -258,15 +258,15 @@ async function playSingleSpan(text, spanIndex) {
 
   currentSpanIndex = spanIndex;
 
+  const player = new StreamingWavPlayer();
+  currentPlayer = player;
+
   // Update progress UI to show we're playing this span
   updateProgressUI();
 
   // Log span playback start (1-indexed for display)
   logStatus(`playing span ${spanIndex + 1} of ${totalSpans}`);
   logStatus('connecting to TTS...');
-
-  const player = new StreamingWavPlayer();
-  currentPlayer = player;
 
   return new Promise((resolve, reject) => {
     // Highlight and scroll to span when audio actually starts playing
