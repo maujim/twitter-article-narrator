@@ -7,23 +7,28 @@
     <!-- Copy/Open buttons below playback controls -->
     <div id="copyOpenButtons" style="display: flex; gap: 8px; margin-bottom: 12px;"></div>
 
-    <!-- Settings section -->
-    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-      <input id="apiUrl" type="text" placeholder="API URL" value="http://localhost:8000" style="flex: 1;">
-      <button id="saveSettings">Save</button>
-    </div>
+    <!-- Open settings button -->
+    <div id="openSettingsButton" style="margin-bottom: 12px;"></div>
 
-    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-      <select id="voice" style="flex: 1;">
-        <option value="alba">alba</option>
-        <option value="marius">marius</option>
-        <option value="javert">javert</option>
-        <option value="jean">jean</option>
-        <option value="fantine">fantine</option>
-        <option value="cosette">cosette</option>
-        <option value="eponine">eponine</option>
-        <option value="azelma">azelma</option>
-      </select>
+    <!-- Settings section (hidden by default) -->
+    <div id="settingsSection" style="display: none;">
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input id="apiUrl" type="text" placeholder="API URL" value="http://localhost:8000" style="flex: 1;">
+        <button id="saveSettings">Save</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <select id="voice" style="flex: 1;">
+          <option value="alba">alba</option>
+          <option value="marius">marius</option>
+          <option value="javert">javert</option>
+          <option value="jean">jean</option>
+          <option value="fantine">fantine</option>
+          <option value="cosette">cosette</option>
+          <option value="eponine">eponine</option>
+          <option value="azelma">azelma</option>
+        </select>
+      </div>
     </div>
 
     <!-- Output log at the bottom -->

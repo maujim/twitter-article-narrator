@@ -40,8 +40,9 @@
 - [ ] Implement settings toggle/modal
 - [ ] Commit
 
-### 8. centering
+### 8. centering + more
 - [ ] center the buttons in play/pause/stop
+- [ ] update architecture.md
 
 
 ### finish

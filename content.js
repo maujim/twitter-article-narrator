@@ -325,6 +325,19 @@ function setupNarratorEventListeners() {
     logStatus('settings saved');
   };
 
+  // Toggle settings button
+  narratorUi.querySelector('#toggleSettings').onclick = () => {
+    const settingsSection = narratorUi.querySelector('#settingsSection');
+    const toggleBtn = narratorUi.querySelector('#toggleSettings');
+    if (settingsSection.style.display === 'none') {
+      settingsSection.style.display = 'block';
+      updateButtonText(toggleBtn, 'Close settings');
+    } else {
+      settingsSection.style.display = 'none';
+      updateButtonText(toggleBtn, 'Open settings');
+    }
+  };
+
   // Auto-extract on load
   extractText();
 
@@ -569,6 +582,15 @@ function setupNarratorUI() {
 
           copyOpenContainer.appendChild(copyBtn);
           copyOpenContainer.appendChild(openTabBtn);
+        }
+
+        // Clone for Open settings button
+        const openSettingsContainer = narratorUi.querySelector('#openSettingsButton');
+        if (openSettingsContainer) {
+          const openSettingsBtn = followButton.cloneNode(true);
+          openSettingsBtn.id = 'toggleSettings';
+          updateButtonText(openSettingsBtn, 'Open settings');
+          openSettingsContainer.appendChild(openSettingsBtn);
         }
 
         // Clone for playback buttons
