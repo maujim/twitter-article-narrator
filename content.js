@@ -783,8 +783,25 @@ function setupNarratorUI() {
         }
       }
 
+      // Fallback: Look for Reply button if Follow button not found
       if (!followButton) {
-        console.warn('Narrator UI: Could not find Follow button to clone');
+        console.log('Narrator UI: Follow button not found, trying Reply button fallback');
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+          const spans = btn.querySelectorAll('span');
+          for (const span of spans) {
+            if (span.textContent.trim() === 'Reply') {
+              followButton = btn;
+              console.log('Narrator UI: Found Reply button to clone');
+              break;
+            }
+          }
+          if (followButton) break;
+        }
+      }
+
+      if (!followButton) {
+        console.warn('Narrator UI: Could not find Follow or Reply button to clone');
       }
 
       // Find and clone separator elements (look for div with role="separator" or border styling)
