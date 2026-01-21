@@ -39,11 +39,6 @@
       display: block;
     }
 
-    #narrator-ui .info-panel.span-info {
-      background: #eff6ff;
-      border: 1px solid #dbeafe;
-    }
-
     #narrator-ui .info-panel.audio-info {
       background: #fffbeb;
       border: 1px solid #fde68a;
@@ -145,48 +140,6 @@
       border-color: #dc2626;
     }
 
-    #narrator-ui .pagination {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 8px;
-      border: 1px solid #e5e7eb;
-      border-radius: 5px;
-      background: #fff;
-      margin-bottom: 8px;
-    }
-
-    #narrator-ui .pagination button {
-      flex: 1;
-      padding: 8px 0;
-      background: transparent;
-      border: none;
-      color: #2563eb;
-      font-weight: 500;
-      font-size: 11px;
-    }
-
-    #narrator-ui .pagination button:hover:not(:disabled) {
-      background: #eff6ff;
-    }
-
-    #narrator-ui .pagination button:disabled {
-      color: #d1d5db;
-    }
-
-    #narrator-ui .pagination-info {
-      font-size: 10px;
-      color: #9ca3af;
-      text-align: center;
-      flex: 0 0 auto;
-      min-width: 50px;
-      padding: 0 4px;
-    }
-
-    #narrator-ui .pagination-info strong {
-      color: #374151;
-    }
-
     #narrator-ui .divider {
       height: 1px;
       background: #e5e7eb;
@@ -275,27 +228,6 @@
   <div class="divider"></div>
 
   <div id="out">Ready</div>
-
-  <div id="spanInfo" class="info-panel span-info">
-    <div class="info-label">Span <span id="spanIndex">0</span></div>
-    <div class="info-value preview" id="spanText"></div>
-    <div class="info-row">
-      <span><strong id="spanLength">0</strong> chars</span>
-      <span><strong id="spanWords">0</strong> words</span>
-    </div>
-  </div>
-
-  <div class="pagination" id="pagination" style="display: none;">
-    <button id="prevSpan" disabled>&lt; Prev</button>
-    <div class="pagination-info">
-      <strong id="currentSpan">0</strong> / <strong id="totalSpans">0</strong>
-    </div>
-    <button id="nextSpan" disabled>Next &gt;</button>
-  </div>
-
-  <div class="btn-group" id="jumpGroup" style="display: none;">
-    <button id="jumpToSpan">Jump to Span</button>
-  </div>
 
   <div class="divider"></div>
 

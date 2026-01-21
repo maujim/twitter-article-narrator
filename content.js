@@ -87,9 +87,6 @@ async function playSingleSpan(text, spanIndex) {
   const groups = groupSpansByParent();
 
   currentSpanIndex = spanIndex;
-  if (spanIndex >= 0 && spanIndex < groups.length) {
-    updateSpanInfo(groups[spanIndex].text, spanIndex);
-  }
 
   if (outEl) {
     outEl.textContent = `connecting to TTS...`;
@@ -222,58 +219,6 @@ async function playSpansSequentially(spans, startOffset = 0) {
   }
 }
 
-// Update the span info panel
-function updateSpanInfo(text, index) {
-  currentSpanText = text;
-  currentSpanIndex = index;
-
-  const spanInfoDiv = document.getElementById("spanInfo");
-  const spanIndexSpan = document.getElementById("spanIndex");
-  const spanTextDiv = document.getElementById("spanText");
-  const spanLengthSpan = document.getElementById("spanLength");
-  const spanWordsSpan = document.getElementById("spanWords");
-
-  const words = text.split(/\s+/).filter(w => w.length > 0).length;
-  const preview = text.length > 100 ? text.substring(0, 100) + '...' : text;
-
-  if (spanIndexSpan) spanIndexSpan.textContent = index + 1;
-  if (spanTextDiv) spanTextDiv.textContent = preview;
-  if (spanLengthSpan) spanLengthSpan.textContent = text.length;
-  if (spanWordsSpan) spanWordsSpan.textContent = words;
-  if (spanInfoDiv) spanInfoDiv.classList.add("visible");
-
-  const currentSpanEl = document.getElementById("currentSpan");
-  if (currentSpanEl) currentSpanEl.textContent = index + 1;
-  updatePaginationButtons();
-}
-
-// Update pagination button states
-function updatePaginationButtons() {
-  const prevBtn = document.getElementById("prevSpan");
-  const nextBtn = document.getElementById("nextSpan");
-  if (prevBtn) prevBtn.disabled = currentSpanIndex <= 0;
-  if (nextBtn) nextBtn.disabled = currentSpanIndex >= totalSpanCount - 1;
-}
-
-// Show pagination and jump controls
-function showNavigation() {
-  const pagination = document.getElementById("pagination");
-  const jumpGroup = document.getElementById("jumpGroup");
-  const totalSpansEl = document.getElementById("totalSpans");
-
-  if (pagination) pagination.style.display = "flex";
-  if (jumpGroup) jumpGroup.style.display = "flex";
-  if (totalSpansEl) totalSpansEl.textContent = totalSpanCount;
-}
-
-// Load span by index directly
-function loadSpan(index) {
-  if (index < 0 || index >= spanGroups.length) return false;
-  const group = spanGroups[index];
-  updateSpanInfo(group.text, index);
-  return true;
-}
-
 // Set up event listeners for the narrator UI
 function setupNarratorEventListeners() {
   const narratorUi = document.getElementById('narrator-ui');
@@ -302,11 +247,6 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#playAll').disabled = totalSpanCount === 0;
 
     totalSpans = totalSpanCount;
-
-    if (totalSpanCount > 0) {
-      showNavigation();
-      loadSpan(0);
-    }
   };
 
   // Initialize API URL input from saved value
@@ -392,20 +332,6 @@ function setupNarratorEventListeners() {
     narratorUi.querySelector('#pausePlayback').disabled = true;
     narratorUi.querySelector('#stopPlayback').disabled = true;
     currentSpanIndex = 0;
-  };
-
-  // Previous span
-  narratorUi.querySelector('#prevSpan').onclick = () => {
-    if (currentSpanIndex > 0) {
-      loadSpan(currentSpanIndex - 1);
-    }
-  };
-
-  // Next span
-  narratorUi.querySelector('#nextSpan').onclick = () => {
-    if (currentSpanIndex < totalSpanCount - 1) {
-      loadSpan(currentSpanIndex + 1);
-    }
   };
 
   // Jump to span (scrolls to it in the page)
