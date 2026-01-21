@@ -9,6 +9,7 @@ let lastPlayedAudioSize = 0;
 let totalSpanCount = 0;
 let spanGroups = [];
 let uiInjected = false;
+let apiUrl = localStorage.getItem('ttsApiUrl') || 'http://localhost:8000';
 
 // Sequential playback state
 let currentPlayer = null;
@@ -114,14 +115,17 @@ async function playSingleSpan(text, spanIndex) {
         estimateBtn.disabled = false;
       }
 
-      const totalTime = ((performance.now() - startTime) / 1000).toFixed(1);
-      const firstAudioSecs = ((firstAudioTime - startTime) / 1000).toFixed(2);
-      if (outEl) {
-        outEl.textContent = `done (${firstAudioSecs}s to first audio, ${totalTime}s total)`;
-      }
+      // Wait for audio playback to actually finish before resolving
+      player.waitForPlaybackEnd().then(() => {
+        const totalTime = ((performance.now() - startTime) / 1000).toFixed(1);
+        const firstAudioSecs = ((firstAudioTime - startTime) / 1000).toFixed(2);
+        if (outEl) {
+          outEl.textContent = `done (${firstAudioSecs}s to first audio, ${totalTime}s total)`;
+        }
 
-      currentPlayer = null;
-      resolve();
+        currentPlayer = null;
+        resolve();
+      });
     };
 
     player.onError = (error) => {
@@ -159,7 +163,7 @@ async function playSingleSpan(text, spanIndex) {
     let firstAudioTime = startTime;
 
     chrome.runtime.sendMessage(
-      { type: "fetchTTS", text: text },
+      { type: "fetchTTS", text: text, apiUrl: apiUrl },
       (response) => {
         if (chrome.runtime.lastError) {
           chrome.runtime.onMessage.removeListener(chunkListener);
@@ -316,6 +320,27 @@ function setupNarratorEventListeners() {
       showNavigation();
       loadSpan(0);
       narratorUi.querySelector('#playCurrent').disabled = false;
+    }
+  };
+
+  // Initialize API URL input from saved value
+  const apiUrlInput = narratorUi.querySelector('#apiUrl');
+  if (apiUrlInput) {
+    apiUrlInput.value = apiUrl;
+  }
+
+  // Save settings button
+  narratorUi.querySelector('#saveSettings').onclick = () => {
+    const newUrl = apiUrlInput.value.trim();
+    if (newUrl) {
+      apiUrl = newUrl;
+      localStorage.setItem('ttsApiUrl', apiUrl);
+      const out = narratorUi.querySelector('#out');
+      const originalText = out.textContent;
+      out.textContent = 'settings saved';
+      setTimeout(() => {
+        out.textContent = originalText;
+      }, 1500);
     }
   };
 

@@ -197,7 +197,50 @@
       background: #e5e7eb;
       margin: 10px 0;
     }
+
+    #narrator-ui .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    #narrator-ui .settings-row label {
+      font-size: 10px;
+      color: #6b7280;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    #narrator-ui .settings-row input {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 11px;
+      font-family: inherit;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      background: #fff;
+      color: #374151;
+    }
+
+    #narrator-ui .settings-row input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    #narrator-ui .settings-row button {
+      flex: 0 0 auto;
+      padding: 6px 10px;
+      font-size: 10px;
+    }
   </style>
+
+  <div class="settings-row">
+    <label for="apiUrl">API URL</label>
+    <input id="apiUrl" type="text" placeholder="http://localhost:8000" value="http://localhost:8000">
+    <button id="saveSettings">Save</button>
+  </div>
 
   <div class="btn-group">
     <button id="run" class="primary">Extract Text</button>

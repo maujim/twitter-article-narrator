@@ -116,6 +116,20 @@ class StreamingWavPlayer {
     }
   }
 
+  // Returns a promise that resolves when audio playback is actually finished
+  waitForPlaybackEnd() {
+    return new Promise(resolve => {
+      const check = () => {
+        if (this.audioContext.currentTime >= this.nextStartTime) {
+          resolve();
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
   stop() {
     if (this.audioContext) {
       this.audioContext.close();
