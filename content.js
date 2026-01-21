@@ -121,21 +121,24 @@ function updateProgressUI() {
   }
 
   const displayIndex = Math.min(currentSpanIndex, totalSpans);
-  const percentage = Math.round((displayIndex / totalSpans) * 100);
+  // While playing, show current span (1-indexed). When not playing, show completed spans.
+  const isCurrentlyPlaying = isPlaying && currentPlayer;
+  const spansToShow = isCurrentlyPlaying ? displayIndex + 1 : displayIndex;
+  const percentage = Math.round((spansToShow / totalSpans) * 100);
 
-  if (displayIndex === 0) {
+  if (spansToShow === 0) {
     progressText.textContent = `Not started • ${totalSpans} spans`;
     if (playBtn) {
       playBtn.disabled = false;
       updateButtonText(playBtn, 'Play');
     }
-  } else if (displayIndex >= totalSpans) {
+  } else if (spansToShow >= totalSpans && !isCurrentlyPlaying) {
     progressText.textContent = `Complete • ${totalSpans} of ${totalSpans} spans`;
     if (playBtn) {
       updateButtonText(playBtn, 'Play');
     }
   } else {
-    progressText.textContent = `Span ${displayIndex} of ${totalSpans} (${percentage}%)`;
+    progressText.textContent = `Span ${spansToShow} of ${totalSpans} (${percentage}%)`;
     if (playBtn && !isPlaying) {
       updateButtonText(playBtn, 'Resume');
     }
@@ -293,6 +296,9 @@ async function playSingleSpan(text, spanIndex) {
   const groups = groupSpansByParent();
 
   currentSpanIndex = spanIndex;
+
+  // Update progress UI to show we're playing this span
+  updateProgressUI();
 
   // Log span playback start (1-indexed for display)
   logStatus(`playing span ${spanIndex + 1} of ${totalSpans}`);
