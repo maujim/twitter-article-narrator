@@ -40,6 +40,10 @@
 - [ ] Implement settings toggle/modal
 - [ ] Commit
 
-### 8. finish
+### 8. centering
+- [ ] center the buttons in play/pause/stop
+
+
+### finish
 - [ ] just say "DONE"
 

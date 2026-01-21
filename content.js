@@ -572,10 +572,8 @@ function setupNarratorUI() {
         }
 
         // Clone for playback buttons
-        const buttonContainer = narratorUi.querySelector('div[style*="display: flex"]:last-of-type');
+        const buttonContainer = narratorUi.querySelector('#playbackButtons');
         if (buttonContainer) {
-          buttonContainer.innerHTML = ''; // Clear existing buttons
-
           // Clone 3 times for Play All, Pause, Stop
           const playAllBtn = followButton.cloneNode(true);
           const pauseBtn = followButton.cloneNode(true);

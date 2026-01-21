@@ -1,6 +1,13 @@
 <!-- Reusable UI template injected by content.js -->
 <template id="narrator-ui-template">
   <div style="padding: 12px;">
+    <!-- Playback buttons at the top -->
+    <div id="playbackButtons" style="display: flex; gap: 8px; margin-bottom: 12px;"></div>
+
+    <!-- Copy/Open buttons below playback controls -->
+    <div id="copyOpenButtons" style="display: flex; gap: 8px; margin-bottom: 12px;"></div>
+
+    <!-- Settings section -->
     <div style="display: flex; gap: 8px; margin-bottom: 12px;">
       <input id="apiUrl" type="text" placeholder="API URL" value="http://localhost:8000" style="flex: 1;">
       <button id="saveSettings">Save</button>
@@ -19,14 +26,7 @@
       </select>
     </div>
 
-    <div id="copyOpenButtons" style="display: flex; gap: 8px; margin-bottom: 12px;"></div>
-
+    <!-- Output log at the bottom -->
     <div id="out" style="margin-bottom: 12px; height: 150px; overflow-y: auto;"></div>
-
-    <div style="display: flex; gap: 8px;">
-      <button id="playAll" disabled style="flex: 1;">Play All</button>
-      <button id="pausePlayback" disabled style="flex: 1;">Pause</button>
-      <button id="stopPlayback" disabled style="flex: 1;">Stop</button>
-    </div>
   </div>
 </template>
