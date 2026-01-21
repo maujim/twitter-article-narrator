@@ -65,46 +65,6 @@ let sequentialSpans = [];
 let totalSpans = 0;
 let currentChunkListener = null;
 
-// Progress tracking state
-let lastArticleUrl = '';
-
-// Get localStorage key for current article progress
-function getProgressKey() {
-  const url = window.location.href;
-  return `narrator_progress_${url}`;
-}
-
-// Get localStorage key for current article ID (for tracking if article changed)
-function getArticleIdKey() {
-  return 'narrator_last_article';
-}
-
-// Save current progress to localStorage
-function saveProgress() {
-  const key = getProgressKey();
-  localStorage.setItem(key, currentSpanIndex.toString());
-  localStorage.setItem(getArticleIdKey(), window.location.href);
-}
-
-// Load progress from localStorage
-function loadProgress() {
-  const lastUrl = localStorage.getItem(getArticleIdKey());
-  const currentUrl = window.location.href;
-
-  // Reset if we're on a different article
-  if (lastUrl !== currentUrl) {
-    currentSpanIndex = 0;
-    return 0;
-  }
-
-  const key = getProgressKey();
-  const saved = localStorage.getItem(key);
-  if (saved !== null) {
-    currentSpanIndex = parseInt(saved, 10);
-  }
-  return currentSpanIndex;
-}
-
 // Update progress bar UI
 function updateProgressUI() {
   const progressText = document.getElementById('progressText');
@@ -139,8 +99,9 @@ function updateProgressUI() {
     }
   } else {
     progressText.textContent = `Span ${spansToShow} of ${totalSpans} (${percentage}%)`;
+    // Always show "Play" when not playing - no resume state
     if (playBtn && !isPlaying) {
-      updateButtonText(playBtn, 'Resume');
+      updateButtonText(playBtn, 'Play');
     }
   }
 
@@ -420,10 +381,9 @@ async function playSpansSequentially(spans, startOffset = 0) {
       if (!isPlaying) break;
       await playSingleSpan(spans[i], startOffset + i);
 
-      // Update progress and save after each span
+      // Update progress after each span
       currentSpanIndex = startOffset + i + 1;
       updateProgressUI();
-      saveProgress();
     }
 
     if (isPlaying && currentSpanIndex >= totalSpans) {
@@ -475,8 +435,8 @@ function setupNarratorEventListeners() {
 
     totalSpans = totalSpanCount;
 
-    // Load saved progress and update UI
-    loadProgress();
+    // Reset to beginning and update UI
+    currentSpanIndex = 0;
     updateProgressUI();
 
     const copyBtn = narratorUi.querySelector('#copy');
@@ -548,7 +508,7 @@ function setupNarratorEventListeners() {
   // Auto-extract on load
   extractText();
 
-  // Play (sequential playback)
+  // Play (sequential playback) - always starts from beginning
   narratorUi.querySelector('#playAll').onclick = async () => {
     cleanupPlayback();
 
@@ -559,21 +519,16 @@ function setupNarratorEventListeners() {
     }
 
     isPlaying = true;
-    // currentSpanIndex is the next span to play (0 = start from beginning)
-    const remainingSpans = sequentialSpans.slice(currentSpanIndex);
+    currentSpanIndex = 0; // Always start from beginning
 
     narratorUi.querySelector('#playAll').disabled = true;
     narratorUi.querySelector('#pausePlayback').disabled = false;
     narratorUi.querySelector('#stopPlayback').disabled = false;
     updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
 
-    if (currentSpanIndex === 0) {
-      logStatus(`Starting playback (API: ${apiUrl}, Voice: ${voice})`);
-    } else {
-      logStatus(`Resuming from span ${currentSpanIndex + 1} (API: ${apiUrl}, Voice: ${voice})`);
-    }
+    logStatus(`Starting playback (API: ${apiUrl}, Voice: ${voice})`);
 
-    playSpansSequentially(remainingSpans, currentSpanIndex);
+    playSpansSequentially(sequentialSpans, 0);
   };
 
   // Pause playback
@@ -601,7 +556,6 @@ function setupNarratorEventListeners() {
     updateButtonText(narratorUi.querySelector('#pausePlayback'), 'Pause');
     currentSpanIndex = 0;
     updateProgressUI();
-    saveProgress(); // Clear saved progress
   };
 
   // Copy to clipboard
