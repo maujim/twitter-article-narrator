@@ -563,6 +563,7 @@ function setupNarratorEventListeners() {
     isPlaying = false;
     logStatus('paused');
     narratorUi.querySelector('#playAll').disabled = false; // Enable Play to resume
+    narratorUi.querySelector('#pausePlayback').disabled = true; // Disable Pause button
   };
 
   // Stop playback
